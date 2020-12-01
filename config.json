@@ -1,0 +1,9 @@
+{
+    "wifi_config": {
+        "ssid": "Telstra1A4A87",
+        "password": "Fi,[Yti,[3-3-"
+    },
+    "MQTT_config": {
+        "Host": "192.168.0.239"
+    },
+}
