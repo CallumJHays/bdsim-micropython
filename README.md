@@ -39,21 +39,28 @@ These commands assume to be run on linux with access to required dependencies. P
 ### For ESP32
 
 ```bash
-BUILD_DIR=~/bdsim-firmware-build # specify build dir
+BUILD_DIR=$(pwd)/firmware-build # specify build dir
 git clone https://github.com/micropython/micropython $BUILD_DIR/micropython
 cd $BUILD_DIR/micropython
-git checkout v1.13 # choose micropython version - note v1.12 is incompatible with ulab
+git checkout b137d064e9e0bfebd2a59a9b312935031252e742
+# choose micropython version - note v1.12 is incompatible with ulab
+# and v1.13 is currently broken in some ways (on some platforms) https://github.com/BradenM/micropy-cli/issues/167
+# - the patch is not live yet (should be in 1.14), but is at this commit
 git submodule update --init
 cd $BUILD_DIR/micropython/mpy-cross && make # build cross-compiler (required)
 
+cd $BUILD_DIR/micropython/ports/esp32
 make ESPIDF= # will display supported ESP-IDF commit hashes
 # output should look like: """
 # ...
 # Supported git hash (v3.3): 9e70825d1e1cbf7988cf36981774300066580ea7
 # Supported git hash (v4.0) (experimental): 4c81978a3e2220674a432a588292a4c860eef27b
 # """
+```
 
-# choose an esp-idf version
+Choose an ESPIDF version from one of the options printed by the previous command:
+
+```bash
 ESPIDF_VER=9e70825d1e1cbf7988cf36981774300066580ea7
 
 # Download and prepare the SDK
@@ -67,19 +74,27 @@ pip install -r ./requirements.txt # install python reqs
 Next, install the ESP32 compiler. If using an ESP-IDF version >= 4.x (chosen by `$ESPIDF_VER` above), this can be done by running `./install.sh`. Otherwise, (for version 3.x) run:
 
 ```bash
+cd $BUILD_DIR
+
 # for 64 bit linux
 curl https://dl.espressif.com/dl/xtensa-esp32-elf-linux64-1.22.0-80-g6c4433a-5.2.0.tar.gz | tar xvz
 
 # for 32 bit
-curl https://dl.espressif.com/dl/xtensa-esp32-elf-linux32-1.22.0-80-g6c4433a-5.2.0.tar.gz | tar xvz
+# curl https://dl.espressif.com/dl/xtensa-esp32-elf-linux32-1.22.0-80-g6c4433a-5.2.0.tar.gz | tar xvz
 
-# see https://docs.espressif.com/projects/esp-idf/en/v3.3.2/get-started for more info
+# don't worry about adding to path; we'll specify that later
+
+# also, see https://docs.espressif.com/projects/esp-idf/en/v3.3.2/get-started for more info
 ```
 
 Next, download `ulab`'s source code and configure required features:
 
+TODO: indicate minimum `ulab` features required by `bdsim.micropython`
+
 ```bash
 git clone https://github.com/v923z/micropython-ulab $BUILD_DIR/ulab
+cd $BUILD_DIR/ulab
+git checkout 1.1.0
 
 # you can look through and enable/disable ulab features by editing $BUILD_DIR/ulab/code/ulab.h
 # the default enables all features
@@ -93,13 +108,50 @@ cd $BUILD_DIR/micropython/ports/esp32
 export PATH=$BUILD_DIR/xtensa-esp32-elf/bin:$PATH
 export ESPIDF=$BUILD_DIR/esp-idf # req'd by Makefile
 export BOARD=GENERIC # options are dirs in ./boards
-export USER_C_MODULES=$BUILD_DIR/ulab
+export USER_C_MODULES=$BUILD_DIR/ulab # include ulab ext
 
-make submodules && make all
+make submodules & make all
 ```
 
-Plug in your ESP32. Now flash it:
+Plug in your ESP32 via USB and then flash it:
 
 ```bash
 make erase && make deploy
+```
+
+# Development
+
+A conda environment is provided with a CPython version closest to the equivalent micropython available; 3.4 (as of writing), as well as the micropython interpreter itself built with `ulab` using similar to steps above (for unix).
+
+The CPython will aid development as you will get the same syntax errors in your editor as on your device. You should set your editor's language server's interpreter to this one for that to work. Note that this isn't foolproof - use of standard library may be different in MPy compared to CPy.
+
+The MicroPython interpreter can be used to run tests on unix and distribute this package as a upip installable. The installable can be used to quickly run tests on your device.
+
+Install conda environment:
+
+```bash
+conda env update -f environment.yml
+```
+
+Run tests on unix:
+
+```bash
+# TODO: probably a bash script
+```
+
+Run tests on device:
+
+```bash
+# TODO: also probably a bash script
+# 1. use mpy-cross to produce .mpy modules for dist. pkgs and tests
+# 2. upload to device via rshell
+# 3. run tests on device
+
+# Note that the above method requires enough RAM to store bdsim.micropython, which may not be viable. Alternatively:
+# 1. recompile firmware with bdsim.micropython as frozen module. Reflash device.
+# 2. use mpy-cross to produce .mpy modules for tests
+# 3. upload to device via rshell
+# 4. run tests on device
+
+# A third hybrid approach may also be viable. Keep modules small so that individual frozen modules on the device may be 'overridden' by a local (changed) .mpy module for testing. If an OOM error occurs, recompile the entire module as frozen in firmware and reflash the device. Rinse and repeat.
 ```

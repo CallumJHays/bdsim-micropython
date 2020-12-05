@@ -1,0 +1,11 @@
+name: bdsim.micropython
+
+channels:
+  - defaults
+  - conda-forge
+
+dependencies:
+  - micropython = 1.11
+  - python = 3.4 # micropython 1.13 only (almost) fully supports 3.4
+  # but pip and micropy requires >=3.5; micropy is mostly caught up.
+  # see https://github.com/micropython/micropython/issues/1329

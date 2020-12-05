@@ -1,6 +1,8 @@
-# boot.py - - runs on boot-up
+# # boot.py - - runs on boot-up
 
-import network
+# import network
 
-if __name__ == "__main__":
-    print("Hello")
+# if __name__ == "__main__":
+#     print("Hello")
+
+import ulab
