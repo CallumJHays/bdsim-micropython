@@ -19,10 +19,9 @@ import scipy.integrate as integrate
 import matplotlib
 import matplotlib.pyplot as plt
 
-from bdsim.tuning.parameter import Param
-from bdsim.tuning.tuners.tuner import Tuner
+from bdsim.core.tunable import Tunable
+from bdsim.core.tuner import Tuner
 from bdsim.components import Block, Plug, blocklist, Wire, SourceBlock, TransferBlock, GraphicsBlock, Struct
-from bdsim.blocks import vision
 
 debuglist = []  # ('propagate', 'state', 'deriv')
 
@@ -102,22 +101,6 @@ class BlockDiagram:
     :ivar graphics: enable graphics
     :vartype graphics: bool
     """
-
-    # vision blocks - define tediously like this to enable static analysis
-    # TODO: figure out how to make the intellisense with this nice - perhaps generic type-hints?
-    # or some use of the @block decorator
-    CAMERA = vision.Camera
-    ERODE = vision.Erode
-    DILATE = vision.Dilate
-    OPENMASK = vision.OpenMask
-    CLOSEMASK = vision.CloseMask
-    INRANGE = vision.InRange
-    MASK = vision.Mask
-    THRESHOLD = vision.Threshold
-    DRAWKEYPOINTS = vision.DrawKeypoints
-    CVTCOLOR = vision.CvtColor
-    BLOBS = vision.Blobs
-    DISPLAY = vision.Display
 
     def __init__(self, name='main', **kwargs):
         """
@@ -1360,7 +1343,7 @@ class BlockDiagram:
         so use with caution!
 
         :param *init: Initial value of the param. If wanting a tuple, can be multiple values to save on extra brackets.
-        :type *init: Union[any, :class:`.Param`], required
+        :type *init: Union[any, :class:`.Tunable`], required
         :param name: name of the param. If provided, will become the label on the gui - otherwise will be list of "block.param" where it is used by blocks, defaults to None
         :type max: str, optional
         :param min: minimum of the value. If provided with max, a GUI can present a slider control, defaults to None
@@ -1373,12 +1356,12 @@ class BlockDiagram:
         :type step: number, optional
         :param oneof: a list or tuple of options. Will produce a dropdown menu if provided, defaults to None
         :type oneof: iterable, optional
-        :param default: the default value for an OptionalParam. Setting this allows '*init' to be None. Will produce a controls shown/hidden by an .enabled checkbox - switching the value between None and it's underlying value when enabled, defaults to None
-        :type default: Union[any :class:`.Param`], optional
+        :param default: the default value for an OptionalTunable. Setting this allows '*init' to be None. Will produce a controls shown/hidden by an .enabled checkbox - switching the value between None and it's underlying value when enabled, defaults to None
+        :type default: Union[any :class:`.Tunable`], optional
         :param force_gui: If a parameter is not used by any blocks, it will not be shown in a gui. set this True to override this behaviour, defaults to False
         :type force_gui: bool, optional
-        :return: returns a :class:`.Param` object that may then be passed into a :class:`.TunableBlock` for use.
-        :rtype: :class:`.Param`
+        :return: returns a :class:`.Tunable` object that may then be passed into a :class:`.TunableBlock` for use.
+        :rtype: :class:`.Tunable`
         """
         if len(init) == 1:
             init = init[0]
@@ -1387,7 +1370,7 @@ class BlockDiagram:
                                         log_scale=log_scale, oneof=oneof, default=default).items()
                   if v is not None}
 
-        param = Param(init, **kwargs)
+        param = Tunable(init, **kwargs)
 
         # if `force_gui`, include the gui control at the index of insertion,
         # even if it's not used by any blocks.

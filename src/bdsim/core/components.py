@@ -3,12 +3,19 @@
 """
 Components of the simulation system, namely blocks, wires and plugs.
 """
+from abc import ABC, abstractmethod
+from typing import Any, List, Optional as Opt, Tuple, Union
 
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import animation
+from typing_extensions import Literal
+
+from bdsim.core.blockdiagram import BlockDiagram
+
+from bdsim.core import np_compat as np
+
 from collections import UserDict
 
+# type alias
+Source = Union['Block', 'Plug']
 
 class Struct(UserDict):
     """
@@ -58,6 +65,165 @@ class Struct(UserDict):
         return self.name + ':\n' + '\n'.join(
             [fmt(k, v) for k, v in self.data.items() if not k.startswith('_')])
 
+# ------------------------------------------------------------------------- #
+
+
+class Plug:
+    """
+    Create a plug.
+
+    :param block: The block being plugged into
+    :type block: Block
+    :param port: The port on the block, defaults to 0
+    :type port: int, optional
+    :param type: 'start' or 'end', defaults to None
+    :type type: str, optional
+    :return: Plug object
+    :rtype: Plug
+
+    Plugs are the interface between a wire and block and have information
+    about port number and wire end. Plugs are on the end of each wire, and connect a 
+    Wire to a specific port on a Block.
+
+    The ``type`` argument indicates if the ``Plug`` is at:
+        - the start of a wire, ie. the port is an output port
+        - the end of a wire, ie. the port is an input port
+
+    A plug can specify a set of ports on a block.
+
+    """
+
+    def __init__(self, block: 'Block', port: int=0, type:Literal['start', 'end']=None):
+
+        self.block = block
+        self.port = port
+        self.type = type  # start
+
+    @property
+    def isslice(self):
+        """
+        Test if port number is a slice.
+
+        :return: Whether the port is a slice
+        :rtype: bool
+
+        Returns ``True`` if the port is a slice, eg. ``[0:3]``, and ``False``
+        for a simple index, eg. ``[2]``.
+        """
+        return isinstance(self.port, slice)
+
+    @property
+    def portlist(self):
+        """
+        Return port numbers.
+
+        :return: Port numbers
+        :rtype: int or list of int
+
+        If the port is a simple index, eg. ``[2]`` returns 2.
+
+        If the port is a slice, eg. ``[0:3]``, returns [0, 1, 2].
+
+        """
+        # if isinstance(self.port, slice):
+        #     step = 1 if self.port.step is None else self.port.step
+        #     return list(range(self.port.start, self.port.stop, step))
+        # else:
+        return [self.port]
+
+    @property
+    def width(self):
+        """
+        Return number of ports connected.
+
+        :return: Number of ports
+        :rtype: int
+
+        If the port is a simple index, eg. ``[2]`` returns 1.
+
+        If the port is a slice, eg. ``[0:3]``, returns 3.
+        """
+        return len(self.portlist)
+
+    def __mul__(self, right: Source):
+        """
+        Operator for implicit wiring.
+
+        :param right: A block or plug to be wired to
+        :type right: Block or Plug
+        :return: ``right``
+        :rtype: Block or Plug
+
+        Implements implicit wiring, where the left-hand operator is a Plug, for example::
+
+            a = bike[2] * bd.GAIN(3)
+
+        will connect port 2 of ``bike`` to the input of the GAIN block.
+
+        Note that::
+
+           a = bike[2] * func[1]
+
+        will connect port 2 of ``bike`` to port 1 of ``func``, and port 1 of ``func``
+        will be assigned to ``a``.  To specify a different outport port on ``func``
+        we need to use parentheses::
+
+            a = (bike[2] * func[1])[0]
+
+        which will connect port 2 of ``bike`` to port 1 of ``func``, and port 0 of ``func``
+        will be assigned to ``a``.
+
+        :seealso: Block.__mul__
+        """
+
+        # called for the cases:
+        # block * block
+        # block * plug
+        s = self.block.bd
+        #assert isinstance(right, Block), 'arguments to * must be blocks not ports (for now)'
+        s.connect(self, right)  # add a wire
+        #print('plug * ' + str(w))
+        return right
+
+    def __setitem__(self, port: int, src: Source):
+        """
+        Convert a LHS block slice reference to a wire.
+
+        :param port: Port number
+        :type port: int
+        :param src: the RHS
+        :type src: Block or Plug
+
+        Used to create a wired connection by assignment, for example::
+
+            c = bd.CONSTANT(1)
+
+            c[0] = x
+
+        Ths method is invoked to create a wire from ``x`` to input port 0 of
+        the constant block ``c``.
+        """
+        # b[port] = src
+        # src --> b[port]
+        print('Plug connecting', src, self, port)
+        self.block.bd.connect(src, self.block[port])
+
+    def __repr__(self):
+        """
+        Display plug details.
+
+        :return: Plug description
+        :rtype: str
+
+        String format::
+
+            bicycle.0[1]
+
+        """
+        return str(self.block) + "[" + str(self.port) + "]"
+
+
+# ------------------------------------------------------------------------- #
 
 class Wire:
     """
@@ -82,7 +248,7 @@ class Wire:
     a set of output ports on one block to a same sized set of input ports on 
     another block.
     """
-    def __init__(self, start=None, end=None, name=None):
+    def __init__(self, start: Opt[Plug]=None, end: Plug=None, name: str=None):
 
         self.name = name
         self.id = None
@@ -172,167 +338,6 @@ class Wire:
 
 # ------------------------------------------------------------------------- #
 
-
-class Plug:
-    """
-    Create a plug.
-
-    :param block: The block being plugged into
-    :type block: Block
-    :param port: The port on the block, defaults to 0
-    :type port: int, optional
-    :param type: 'start' or 'end', defaults to None
-    :type type: str, optional
-    :return: Plug object
-    :rtype: Plug
-
-    Plugs are the interface between a wire and block and have information
-    about port number and wire end. Plugs are on the end of each wire, and connect a 
-    Wire to a specific port on a Block.
-
-    The ``type`` argument indicates if the ``Plug`` is at:
-        - the start of a wire, ie. the port is an output port
-        - the end of a wire, ie. the port is an input port
-
-    A plug can specify a set of ports on a block.
-
-    """
-    def __init__(self, block, port=0, type=None):
-
-        self.block = block
-        self.port = port
-        self.type = type  # start
-
-    @property
-    def isslice(self):
-        """
-        Test if port number is a slice.
-
-        :return: Whether the port is a slice
-        :rtype: bool
-
-        Returns ``True`` if the port is a slice, eg. ``[0:3]``, and ``False``
-        for a simple index, eg. ``[2]``.
-        """
-        return isinstance(self.port, slice)
-
-    @property
-    def portlist(self):
-        """
-        Return port numbers.
-
-        :return: Port numbers
-        :rtype: int or list of int
-
-        If the port is a simple index, eg. ``[2]`` returns 2.
-
-        If the port is a slice, eg. ``[0:3]``, returns [0, 1, 2].
-
-        """
-        if isinstance(self.port, slice):
-            if self.port.step is None:
-                return range(self.port.start, self.port.stop)
-            else:
-                return range(self.port.start, self.port.stop, self.port.step)
-        else:
-            return self.port
-
-    @property
-    def width(self):
-        """
-        Return number of ports connected.
-
-        :return: Number of ports
-        :rtype: int
-
-        If the port is a simple index, eg. ``[2]`` returns 1.
-
-        If the port is a slice, eg. ``[0:3]``, returns 3.
-        """
-        return len(self.portlist)
-
-    def __mul__(left, right):
-        """
-        Operator for implicit wiring.
-
-        :param left: A plug to be wired from
-        :type left: Plug
-        :param right: A block or plug to be wired to
-        :type right: Block or Plug
-        :return: ``right``
-        :rtype: Block or Plug
-
-        Implements implicit wiring, where the left-hand operator is a Plug, for example::
-
-            a = bike[2] * bd.GAIN(3)
-
-        will connect port 2 of ``bike`` to the input of the GAIN block.
-
-        Note that::
-
-           a = bike[2] * func[1]
-
-        will connect port 2 of ``bike`` to port 1 of ``func``, and port 1 of ``func``
-        will be assigned to ``a``.  To specify a different outport port on ``func``
-        we need to use parentheses::
-
-            a = (bike[2] * func[1])[0]
-
-        which will connect port 2 of ``bike`` to port 1 of ``func``, and port 0 of ``func``
-        will be assigned to ``a``.
-
-        :seealso: Block.__mul__
-        """
-
-        # called for the cases:
-        # block * block
-        # block * plug
-        s = left.block.bd
-        #assert isinstance(right, Block), 'arguments to * must be blocks not ports (for now)'
-        s.connect(left, right)  # add a wire
-        #print('plug * ' + str(w))
-        return right
-
-    def __setitem__(self, port, src):
-        """
-        Convert a LHS block slice reference to a wire.
-
-        :param port: Port number
-        :type port: int
-        :param src: the RHS
-        :type src: Block or Plug
-
-        Used to create a wired connection by assignment, for example::
-
-            c = bd.CONSTANT(1)
-
-            c[0] = x
-
-        Ths method is invoked to create a wire from ``x`` to input port 0 of
-        the constant block ``c``.
-        """
-        # b[port] = src
-        # src --> b[port]
-        print('Plug connecting', src, self, port)
-        self.bd.connect(src, self[port])
-
-    def __repr__(self):
-        """
-        Display plug details.
-
-        :return: Plug description
-        :rtype: str
-
-        String format::
-
-            bicycle.0[1]
-
-        """
-        return str(self.block) + "[" + str(self.port) + "]"
-
-
-# ------------------------------------------------------------------------- #
-
 blocklist = []
 
 
@@ -364,7 +369,7 @@ def block(cls):
 # ------------------------------------------------------------------------- #
 
 
-class Block:
+class Block(ABC):
     """
     Construct a new block object.
 
@@ -396,6 +401,9 @@ class Block:
     the superclass initializer for each block in the library.
 
     """
+
+    blockclass: Literal['source', 'sink', 'function', 'transfer', 'subsystem']
+
     def __new__(cls, *args, bd=None, **kwargs):
         """
         Construct a new Block object.
@@ -414,7 +422,7 @@ class Block:
 
         # we overload setattr, so need to know whether it is being passed a port
         # name.  Add this attribute now to allow proper operation.
-        block.__dict__['portnames'] = []  # must be first, see __setattr__
+        block.portnames = []  # must be first, see __setattr__
 
         block.bd = bd
         block.nin = 0
@@ -432,15 +440,15 @@ class Block:
     })
 
     def __init__(self,
-                 name=None,
-                 inames=None,
-                 onames=None,
-                 snames=None,
-                 pos=None,
-                 nin=None,
-                 nout=None,
-                 inputs=None,
-                 bd=None,
+                 name: str=None,
+                 inames: List[str]=None,
+                 onames: List[str]=None,
+                 snames: List[str]=None,
+                 pos: Opt[Tuple[int, int]]=None,
+                 nin: int=None,
+                 nout: int=None,
+                 bd: BlockDiagram=None,
+                 *inputs: Union['Block', Plug],
                  **kwargs):
 
         # print('Block constructor, bd = ', bd)
@@ -449,10 +457,10 @@ class Block:
             self.name = self._fixname(name)
         else:
             self.name = None
+
         self.pos = pos
         self.id = None
         self.out = []
-        self.inputs = None
         self.updated = False
         self.shape = 'block'  # for box
         self._inport_names = None
@@ -460,6 +468,12 @@ class Block:
         self._state_names = None
         self.initd = True
         self.bd = self.bd or bd
+
+        # appease pylint
+        self.portnames = self.portnames # this gets set in Block.__new__()
+
+        self.inports: List[Wire] = [] # these get set in BlockDiagram.compile()
+        self.outports: List[Wire] = []
 
         if nin is not None:
             self.nin = nin
@@ -473,10 +487,8 @@ class Block:
         if snames is not None:
             self.state_names(snames)
 
-        if inputs is not None and len(inputs) > 0:
-            #assert len(inputs) == self.nin, 'Number of input connections must match number of inputs'
-            for i, input in enumerate(inputs):
-                self.bd.connect(input, Plug(self, port=i))
+        for i, input in enumerate(inputs):
+            self.bd.connect(input, Plug(self, port=i))
 
         if len(kwargs) > 0:
             print('WARNING: unused arguments', kwargs.keys())
@@ -493,9 +505,10 @@ class Block:
         for k, v in self.__dict__.items():
             if k != 'sim':
                 print("  {:11s}{:s}".format(k + ":", str(v)))
+        self.inputs
 
     # for use in unit testing
-    def _eval(self, *inputs, t=None):
+    def _eval(self, *inputs: Any, t=None):
         """
         Evaluate a block for unit testing.
 
@@ -514,13 +527,13 @@ class Block:
 
         """
         assert len(inputs) == self.nin, 'wrong number of inputs provided'
-        self.inputs = inputs
+        self.inputs = list(inputs)
         out = self.output(t=t)
         assert isinstance(out, list), 'result must be a list'
         assert len(out) == self.nout, 'result list is wrong length'
         return out
 
-    def __getitem__(self, port):
+    def __getitem__(self, port: int):
         """
         Convert a block slice reference to a plug.
 
@@ -542,7 +555,7 @@ class Block:
         #print('getitem called', self, port)
         return Plug(self, port)
 
-    def __setitem__(self, port, src):
+    def __setitem__(self, port: int, src: Source):
         """
         Convert a LHS block slice reference to a wire.
 
@@ -565,7 +578,7 @@ class Block:
         #print('connecting', src, self, port)
         self.bd.connect(src, self[port])
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Source):
         """
         Convert a LHS block name reference to a wire.
 
@@ -603,12 +616,10 @@ class Block:
             # regular case, add attribute to the instance's dictionary
             self.__dict__[name] = value
 
-    def __mul__(left, right):
+    def __mul__(self, right: Source):
         """
         Operator for implicit wiring.
 
-        :param left: A block to be wired from
-        :type left: Block
         :param right: A block or plugto be wired to
         :type right: Block or Plug
         :return: ``right``
@@ -641,9 +652,9 @@ class Block:
         # called for the cases:
         # block * block
         # block * plug
-        s = left.bd
+        s = self.bd
         #assert isinstance(right, Block), 'arguments to * must be blocks not ports (for now)'
-        w = s.connect(left, right)  # add a wire
+        w = s.connect(self, right)  # add a wire
         #print('block * ' + str(w))
         return right
 
@@ -661,7 +672,7 @@ class Block:
     def _fixname(self, s):
         return s.translate(self._latex_remove)
 
-    def inport_names(self, names):
+    def inport_names(self, names: List[str]):
         """
         Set the names of block input ports.
 
@@ -682,7 +693,7 @@ class Block:
             setattr(self, fn, self[port])
             self.portnames.append(fn)
 
-    def outport_names(self, names):
+    def outport_names(self, names: List[str]):
         """
         Set the names of block output ports.
 
@@ -703,10 +714,10 @@ class Block:
             setattr(self, fn, self[port])
             self.portnames.append(fn)
 
-    def state_names(self, names):
+    def state_names(self, names: List[str]):
         self._state_names = names
 
-    def sourcename(self, port):
+    def sourcename(self, port: int):
         """
         Get the name of output port driving this input port.
 
@@ -742,21 +753,21 @@ class Block:
 
     def reset(self):
         if self.nin > 0:
-            self.inputs = [None] * self.nin
+            self.inputs: List[Any] = [None] * self.nin
         self.updated = False
 
-    def add_outport(self, w):
+    def add_outport(self, w: Wire):
         port = w.start.port
         assert port < len(self.outports), 'port number too big'
-        self.outports[port].append(w)
+        self.outports[port] = w
 
-    def add_inport(self, w):
+    def add_inport(self, w: Wire):
         port = w.end.port
         assert self.inports[
             port] is None, 'attempting to connect second wire to an input'
         self.inports[port] = w
 
-    def setinput(self, port, value):
+    def setinput(self, port: int, value: Any):
         """
         Receive input from a wire
 
@@ -785,8 +796,6 @@ class Block:
         for i, val in enumerate(pos):
             self.inputs[i] = val
 
-    def start(self, **kwargs):  # begin of a simulation
-        pass
 
     def check(self):  # check validity of block parameters at start
         assert self.nin > 0 or self.nout > 0, 'no inputs or outputs specified'
@@ -794,10 +803,20 @@ class Block:
             self, 'initd'
         ) and self.initd, 'Block superclass not initalized. was super().__init__ called?'
 
-    def done(self, **kwargs):  # end of simulation
+    @abstractmethod
+    def start(self, **kwargs):  # begin of a simulation
         pass
 
+    @abstractmethod
+    def output(self, t: float):
+        pass
+
+    @abstractmethod
     def step(self):  # valid
+        pass # to be deprecated; replaced solely by output()
+
+    @abstractmethod
+    def done(self, **kwargs):  # end of simulation
         pass
 
 
@@ -814,62 +833,6 @@ class SinkBlock(Block):
         super().__init__(**kwargs)
         self.nout = 0
         self.nstates = 0
-
-
-class GraphicsBlock(SinkBlock):
-    """
-    A GraphicsBlock is a subclass of SinkBlock that represents a block that has inputs
-    but no outputs. Typically used to save data to a variable, file or
-    raphics.
-
-    :param movie: Save animation in this file, defaults to None
-    :type movie: str, optional
-    :param ``**kwargs``: common Block options
-    :return: A PRINT block
-    :rtype: Print instance
-
-    The animation is saved as an MP4 video in the specified file.
-    """
-    def __init__(self, movie=None, **kwargs):
-
-        super().__init__(**kwargs)
-        if not self.bd.options.animation:
-            movie = None
-        self.movie = movie
-
-    def start(self):
-        if self.movie is not None:
-            self.writer = animation.FFMpegWriter(
-                fps=10, extra_args=['-vcodec', 'libx264'])
-            self.writer.setup(fig=self.fig, outfile=self.movie)
-
-    def step(self):
-        super().step()
-        if self.movie is not None:
-            self.writer.grab_frame()
-
-    def done(self):
-        if self.movie is not None:
-            self.writer.finish()
-            self.cleanup()
-
-    def savefig(self, fname, **kwargs):
-        """
-        Save the figure as an image file
-
-        :param fname: Name of file to save graphics to
-        :type fname: str
-        :param ``**kwargs``: Options passed to `savefig <https://matplotlib.org/3.2.2/api/_as_gen/matplotlib.pyplot.savefig.html>`_
-
-        The file format is taken from the file extension and can be
-        jpeg, png or pdf.
-        """
-        try:
-            plt.figure(self.fig.number)
-            plt.savefig(fname, **kwargs)
-        except:
-            pass
-
 
 class SourceBlock(Block):
     """

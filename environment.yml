@@ -13,3 +13,4 @@ dependencies:
   - pip:
       - numpy == 1.16
       - matplotlib == 3.0.3
+      - typing_extensions == 3.7

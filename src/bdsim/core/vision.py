@@ -8,7 +8,7 @@ import flask
 from bdsim.components import SourceBlock, SinkBlock, FunctionBlock, SubsystemBlock, block
 from bdsim.tuning.tuners import Tuner
 from bdsim.tuning.tunable_block import TunableBlock
-from bdsim.tuning.parameter import HyperParam, RangeParam
+from bdsim.tuning.parameter import TunableObject, TunableRange
 
 try:
     import cv2
@@ -176,7 +176,7 @@ try:
                 input, self.lower, self.upper, self.method)
             return [output]
 
-    class KernelParam2D(HyperParam):
+    class TunableKernel2D(TunableObject):
 
         available_types = ["ellipse", "rect", "cross"]
 
@@ -227,7 +227,7 @@ try:
                              if input else [], nin=1, nout=1, **kwargs)
 
             self.diadic_func = diadic_func
-            self.kernel = self._param('kernel', KernelParam2D(kernel))
+            self.kernel = self._param('kernel', TunableKernel2D(kernel))
             self.iterations = self._param(
                 'iterations', iterations, min=1, max=10, step=1)
 
@@ -279,7 +279,7 @@ try:
 
             morphblock_kwargs = dict(input=None,
                                      kernel=self._param(
-                                         'kernel', KernelParam2D(kernel), ret_param=True),
+                                         'kernel', TunableKernel2D(kernel), ret_param=True),
                                      iterations=self._param(
                                          'iterations', iterations, ret_param=True),
                                      bd=self.bd, is_subblock=True)
@@ -365,13 +365,13 @@ try:
                 'blob_color', 255, oneof=(0, 255), on_change=self._setup_sbd)
             self.min_dist_between_blobs = self._param('min_dist_between_blobs',
                                                       min_dist_between_blobs, min=1, max=1e3, log_scale=True, on_change=self._setup_sbd)
-            self.area = self._param('area', RangeParam(
+            self.area = self._param('area', TunableRange(
                 area, min=1, max=2**21, default=(50, 2**21), log_scale=True), on_change=self._setup_sbd)
-            self.circularity = self._param('circularity', RangeParam(
+            self.circularity = self._param('circularity', TunableRange(
                 circularity, min=0, max=1, default=(0.5, 1), step=0.01), on_change=self._setup_sbd)
-            self.inertia_ratio = self._param('inertia_ratio', RangeParam(
+            self.inertia_ratio = self._param('inertia_ratio', TunableRange(
                 inertia_ratio, min=0, max=1, default=(0.5, 1), step=0.01), on_change=self._setup_sbd)
-            self.convexivity = self._param('convexivity', RangeParam(
+            self.convexivity = self._param('convexivity', TunableRange(
                 convexivity, min=0, max=1, default=(0.5, 1), step=0.01), on_change=self._setup_sbd)
             self.grayscale_threshold = self._param(
                 'grayscale_threshold', grayscale_threshold, min=(0, 0, 1), max=(255, 255, 255), step=1, on_change=self._setup_sbd)
@@ -379,7 +379,7 @@ try:
             self._setup_sbd()
 
         def _setup_sbd(self, _=None):  # unused param to work with on_change
-            params = cv2.SimpleBlobDetector_Params()
+            params = cv2.TunableSimpleBlobDetector_s()
             params.blobColor = self.blob_color
             params.minDistBetweenBlobs = self.min_dist_between_blobs
             (

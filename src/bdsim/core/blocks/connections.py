@@ -16,12 +16,13 @@ Connection blocks are in two categories:
 # The constructor of each class ``MyClass`` with a ``@block`` decorator becomes a method ``MYCLASS()`` of the BlockDiagram instance.
 
 import importlib.util
-import numpy as np
 import copy
-
+from collections import Iterable
+from typing import Union
 
 import bdsim
-from bdsim.components import SubsystemBlock, SourceBlock, SinkBlock, FunctionBlock, block
+from bdsim.core.components import Block, Source, SubsystemBlock, FunctionBlock, block
+from bdsim.core import BlockDiagram, np_compat as np
 
 # ------------------------------------------------------------------------ #
 @block
@@ -119,8 +120,9 @@ class Mux(FunctionBlock):
         self.type = 'mux'
     
     def output(self, t=None):
-        # TODO, handle inputs that are vectors themselves
-        return [ np.r_[self.inputs] ]
+        return np.concatenate(tuple( \
+                inp if isinstance(inp, Iterable) else (inp,) \
+            for inp in self.inputs))
 
 
 # ------------------------------------------------------------------------ #
@@ -142,7 +144,7 @@ class DeMux(FunctionBlock):
        +------------+---------+---------+
     """
 
-    def __init__(self, nout=1, *inputs, **kwargs):
+    def __init__(self, nout: int=1, *inputs: Source, **kwargs):
         """
         :param nout: DESCRIPTION, defaults to 1
         :type nout: TYPE, optional
@@ -185,7 +187,7 @@ class SubSystem(SubsystemBlock):
        +------------+------------+---------+
     """
 
-    def __init__(self, subsys, *inputs, **kwargs):
+    def __init__(self, subsys: Union[str, BlockDiagram], *inputs, **kwargs):
         """
         :param subsys: Subsystem as either a filename or a ``BlockDiagram`` instance
         :type subsys: str or BlockDiagram
@@ -231,25 +233,31 @@ class SubSystem(SubsystemBlock):
         if isinstance(subsys, str):
             # attempt to import the file
             try:
-                module = importlib.import_module(subsys, package='.')
+                # TODO: handle this for micropython
+                module = importlib.import_module(subsys, package='.') # type: ignore
+
+                # get all the bdsim.BlockDiagram instances
+                simvars = [name for name, ref in module.__dict__.items() if isinstance(ref, BlockDiagram)]
+                if len(simvars) == 0:
+                    raise ImportError('no bdsim.Simulation instances in imported module')
+                elif len(simvars) > 1:
+                    raise ImportError('multiple bdsim.Simulation instances in imported module' + str(simvars))
+                ss = module.__dict__[simvars[0]]
+                self.ssvar = simvars[0]
+
             except SyntaxError:
                 print('-- syntax error in block definiton: ' + subsys)
+
             except ModuleNotFoundError:
                 print('-- module not found ', subsys)
-            # get all the bdsim.BlockDiagram instances
-            simvars = [name for name, ref in module.__dict__.items() if isinstance(ref, bdsim.BlockDiagram)]
-            if len(simvars) == 0:
-                raise ImportError('no bdsim.Simulation instances in imported module')
-            elif len(simvars) > 1:
-                raise ImportError('multiple bdsim.Simulation instances in imported module' + str(simvars))
-            subsys = module.__dict__[simvars[0]]
-            self.ssvar = simvars[0]
-        elif isinstance(subsys, bdsim.BlockDiagram):
+        
+        elif isinstance(subsys, BlockDiagram):
             # use an in-memory digram
             self.ssvar = None
         else:
             raise ValueError('argument must be filename or BlockDiagram instance')
-
+        
+        assert isinstance(subsys, BlockDiagram)
         self.subsystem = copy.deepcopy(subsys)
         self.ssname = subsys.name
 
