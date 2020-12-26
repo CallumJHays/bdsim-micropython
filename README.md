@@ -94,7 +94,8 @@ TODO: indicate minimum `ulab` features required by `bdsim.micropython`
 ```bash
 git clone https://github.com/v923z/micropython-ulab $BUILD_DIR/ulab
 cd $BUILD_DIR/ulab
-git checkout 1.1.0
+# this commit hash is v1.6.0
+git checkout c71920e18636a1e8350cb22d53b119221e0318fc
 
 # you can look through and enable/disable ulab features by editing $BUILD_DIR/ulab/code/ulab.h
 # the default enables all features
@@ -108,7 +109,7 @@ cd $BUILD_DIR/micropython/ports/esp32
 export PATH=$BUILD_DIR/xtensa-esp32-elf/bin:$PATH
 export ESPIDF=$BUILD_DIR/esp-idf # req'd by Makefile
 export BOARD=GENERIC # options are dirs in ./boards
-export USER_C_MODULES=$BUILD_DIR/ulab # include ulab ext
+export USER_C_MODULES=$BUILD_DIR/ulab # include ulab in firmware
 
 make submodules & make all
 ```

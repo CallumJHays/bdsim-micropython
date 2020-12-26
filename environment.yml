@@ -1,16 +1,10 @@
-name: bdsim.micropython
+name: bdsim.cpython
 
 channels:
   - defaults
   - conda-forge
 
-dependencies:
-  - micropython = 1.13
-  - python = 3.4 # micropython 1.13 only (almost) fully supports 3.4
-  # see https://github.com/micropython/micropython/issues/1329
-  - pip = 9 # this is the last supported version for py3.4
-
+requirements:
+  - pip == 20.03
   - pip:
-      - numpy == 1.16
-      - matplotlib == 3.0.3
-      - typing_extensions == 3.7
+      - -r file:requirements.txt

@@ -105,6 +105,3 @@ venv.bak/
 
 # bin files
 *.bin
-
-# folder in which firmware is built (custom)
-/firmware-build
