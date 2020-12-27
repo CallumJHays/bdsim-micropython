@@ -8,6 +8,7 @@ setup_pkg(
     name='bdsim.raspberrypi',
     packages=find_namespace_packages(),
     description='Raspberry Pi IO blocks',
-    long_description=open(str(here / 'README.md')).read(),
-    install_requires=['bdsim.core']
+    long_description=(here / 'README.md').open().read(),
+    install_requires=['bdsim.core'],
+    here=here
 )

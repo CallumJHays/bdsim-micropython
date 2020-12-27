@@ -1223,5 +1223,5 @@ if __name__ == "__main__":
     import os.path
 
     exec(
-        open(str(Path(__file__).parent.absolute() /
-                 "test_blockdiagram.py")).read())
+        (Path(__file__).parent.absolute() /
+         "test_blockdiagram.py").open().read())

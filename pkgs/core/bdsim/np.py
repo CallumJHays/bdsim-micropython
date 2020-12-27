@@ -3,7 +3,8 @@
 from typing import List
 
 try:
-    _float = float  # type: ignore see `float` assignment below
+    _float = float  # type: ignore
+    # see float assignment below
     from ulab import *
     import math
 
@@ -121,5 +122,6 @@ try:
 
     r_ = RClass()
 
-# except ImportError:
-#     from numpy import *  # type: ignore
+except ImportError:
+    # from numpy import *  # type: ignore
+    pass

@@ -8,6 +8,7 @@ setup_pkg(
     name='bdsim.server',
     packages=find_namespace_packages(),
     description='Data logging and Webapp proxy server',
-    long_description=open(str(here / 'README.md')).read(),
-    install_requires=['bdsim.core', 'bdsim.webapp-full']
+    long_description=(here / 'README.md').open().read(),
+    install_requires=['bdsim.core', 'bdsim.webapp-full'],
+    here=here
 )

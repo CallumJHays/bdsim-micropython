@@ -13,6 +13,7 @@ setup_pkg(
     name='bdsim.webapp-lite',
     packages=find_namespace_packages(),
     description='Realtime Telemetry Webapp for bdsim',
-    long_description=open(str(here / 'README.md')).read(),
-    install_requires=['bdsim.core']
+    long_description=(here / 'README.md').open().read(),
+    install_requires=['bdsim.core'],
+    here=here
 )

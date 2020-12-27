@@ -3,11 +3,13 @@
 from shared_setup import setup_pkg
 from pathlib import Path
 
+here = Path(__file__).parent.absolute()
+
 setup_pkg(
     name='bdsim',
     packages=[],
     description='Simulate dynamic systems expressed in block diagram form using Python.',  # TODO
-    long_description=open(
-        str(Path(__file__).parent.absolute() / 'README.md')).read(),
-    subpkg_deps=['core', 'matplotlib', 'server', 'sim',
-                 'realtime', 'robots', 'webapp-full'])
+    long_description=(here / 'README.md').open().read(),
+    install_requires=['core', 'matplotlib', 'server', 'sim',
+                      'realtime', 'robots', 'webapp-full'],
+    here=here)

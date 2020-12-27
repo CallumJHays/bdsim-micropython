@@ -1,6 +1,4 @@
-import abc
-
-class Tuner(abc.ABCMeta):
+class Tuner():
 
     def __init__(self):
         self.queued_updates = []

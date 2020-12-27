@@ -8,6 +8,7 @@ setup_pkg(
     name='bdsim.vision',
     packages=find_namespace_packages(),
     description='Geometrical robot blocks for bdsim',
-    long_description=open(str(here / 'README.md')).read(),
-    install_requires=['bdsim.core', 'opencv']
+    long_description=(here / 'README.md').open().read(),
+    install_requires=['bdsim.core', 'opencv'],
+    here=here
 )

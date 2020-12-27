@@ -2,6 +2,8 @@
 # Loaded Stubs:  esp32-micropython-1.12.0 
 init-hook='import sys;sys.path[1:1]=["src/lib",".micropy/esp32-1.13.0/frozen", ".micropy/esp32-1.13.0/stubs", ".micropy/bdsim.micropython",  ]'
 
+ignore-patterns=*.py3.5-pkg.*
+
 [MESSAGES CONTROL]
 # Only show warnings with the listed confidence levels. Leave empty to show
 # all. Valid levels: HIGH, INFERENCE, INFERENCE_FAILURE, UNDEFINED.
@@ -18,6 +20,7 @@ confidence=
 # --disable=W".
 
 disable = missing-docstring, line-too-long, trailing-newlines, broad-except, logging-format-interpolation, invalid-name, empty-docstring,
-        no-method-argument, assignment-from-no-return, too-many-function-args, unexpected-keyword-arg
-        # the 2nd  line deals with the limited information in the generated stubs.
+        no-method-argument, assignment-from-no-return, too-many-function-args, unexpected-keyword-arg,
+        syntax-error
+        # pylance does this anyway, reqd because it prevents types when using < py3.5 (but we transpile for this in setup.py)
         # the 2nd  line deals with the limited information in the generated stubs.

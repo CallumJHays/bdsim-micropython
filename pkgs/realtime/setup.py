@@ -7,7 +7,8 @@ here = Path(__file__).parent.absolute()
 setup_pkg(
     name='bdsim.realtime',
     packages=find_namespace_packages(),
-    description='Realtime executor for CPython',
-    long_description=open(str(here / 'README.md')).read(),
-    install_requires=['bdsim.core']
+    description='Realtime executor for `bdsim` in CPython',
+    long_description=(here / 'README.md').open().read(),
+    install_requires=['bdsim.core'],
+    here=here
 )

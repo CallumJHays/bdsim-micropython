@@ -8,6 +8,7 @@ setup_pkg(
     name='bdsim.sim',
     packages=find_namespace_packages(),
     description='Geometrical robot blocks for bdsim',
-    long_description=open(str(here / 'README.md')).read(),
-    install_requires=['bdsim.core']
+    long_description=(here / 'README.md').open().read(),
+    install_requires=['bdsim.core'],
+    here=here
 )

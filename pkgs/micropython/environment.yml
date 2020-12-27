@@ -12,8 +12,3 @@ dependencies:
 
   - pip:
       - -r file:../../requirements.txt
-      - numpy == 1.16
-      - typing_extensions == 3.7.4.3 # unsure how use of this will end up as frozen micropython bytecode
-      # will probably need to use a combination of strip-hints and some manual removal of importing from `typing_extensions` and `typing`
-      - matplotlib == 2.2.5
-      - ansitable == 0.9.5

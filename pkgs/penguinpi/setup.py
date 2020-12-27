@@ -8,6 +8,7 @@ setup_pkg(
     name='bdsim.penguinpi',
     packages=find_namespace_packages(),
     description='PenguinPi blocks',
-    long_description=open(str(here / 'README.md')).read(),
-    install_requires=['bdsim.core', 'bdsim.robots']
+    long_description=(here / 'README.md').open().read(),
+    install_requires=['bdsim.core', 'bdsim.robots'],
+    here=here
 )
