@@ -1,158 +1,165 @@
-# bdsim.micropython
+![PyPI - Downloads](https://img.shields.io/pypi/dm/bdsim)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/bdsim)](https://pypi.python.org/pypi/bdsim/)
+[![PyPI version fury.io](https://badge.fury.io/py/bdsim.svg)](https://pypi.python.org/pypi/bdsim/)
+[![PyPI status](https://img.shields.io/pypi/status/ansicolortags.svg)](https://pypi.python.org/pypi/bdsim/)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/petercorke/bdsim/graphs/commit-activity)
+[![GitHub license](https://img.shields.io/github/license/Naereen/StrapDown.js.svg)](https://github.com/petercorke/bdsim/blob/master/LICENSE)
 
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/43713e0b78f547e8912ff05c9350cffb)](https://app.codacy.com/app/callumjhays/bdsim.micropython?utm_source=github.com&utm_medium=referral&utm_content=callumjhays/bdsim.micropython&utm_campaign=Badge_Grade_Dashboard)
+- GitHub repository: [https://github.com/petercorke/bdsim](https://github.com/petercorke/bdsim)
+- Examples and details: [https://github.com/petercorke/bdsim/wiki](https://github.com/petercorke/bdsim/wiki)
+- Documentation: [https://petercorke.github.io/bdsim](https://petercorke.github.io/bdsim)
+- Dependencies: `numpy`, `scipy`, `matplotlib`, `spatialmath`, `ffmpeg` (if rendering animations as a movie)
 
-[![Python](https://img.shields.io/badge/Python-3.6%2B-red.svg)](https://www.python.org/downloads/)
+# Block diagram simulation
 
-[![saythanks](https://img.shields.io/badge/say-thanks-ff69b4.svg)](https://saythanks.io/to/callumjhays)
+This Python package enables modelling and simulation of dynamic systems conceptualized in block diagram form, but represented in terms of Python class and method calls. Unlike Simulink or LabView we write Python code rather than drawing boxes and wires. Wires can communicate any Python type such as scalars, lists, numpy arrays, other objects, and even functions.
 
-BDSim port in micropython for the ESP32
+We first sketch the dynamic system we want to simulate as a block diagram, for example this simple first-order system
 
-# Installation
+![block diagram](https://github.com/petercorke/bdsim/raw/master/figs/bd1-sketch.png)
 
-`numpy` doesn't exist/work for micropython, but is required by `bdsim`. Instead we use `ulab`, which provides a subset of the `numpy` API for use on micropython devices. `ulab` must be compiled from C code with the micropython firmware - it cannot be packaged by `upip`.
-
-## On Ports with `ulab` pre-installed
-
-If `ulab` is already installed you your target micropython device, `bdsim.micropython` may be installed through `upip`. While quick and easy to install, this method stores `bdsim` code in RAM rather than ROM - which is not ideal for resource-limited devices.
-
-For devices with internet access:
+which we can express concisely with `bdsim` as (see [`bdsim/examples/eg1.py`](https://github.com/petercorke/bdsim/blob/master/examples/eg1.py)
 
 ```python
-# run on micropython device
->> import upip
->> upip.install('bdsim.micropython') # install it
->> import bdsim, bdsim.micropython
->> bd = bdsim.BlockDiagram() # use it
+     1	#!/usr/bin/env python3
+     2
+     3	import bdsim.simulation as sim
+     4
+     5	bd = sim.Simulation()
+     6
+     7	# define the blocks
+     8	demand = bd.STEP(T=1, pos=(0,0), name='demand')
+     9	sum = bd.SUM('+-', pos=(1,0))
+    10	gain = bd.GAIN(10, pos=(1.5,0))
+    11	plant = bd.LTI_SISO(0.5, [2, 1], name='plant', pos=(3,0))
+    12	scope = bd.SCOPE(styles=['k', 'r--'], pos=(4,0))
+    13
+    14	# connect the blocks
+    15	bd.connect(demand, sum[0], scope[1])
+    16	bd.connect(plant, sum[1])
+    17	bd.connect(sum, gain)
+    18	bd.connect(gain, plant)
+    19	bd.connect(plant, scope[0])
+    20
+    21	bd.compile()   # check the diagram
+    22	bd.report()    # list all blocks and wires
+    23
+    24	bd.run(5)  # simulate for 5s
+    25
+    26	bd.dotfile('bd1.dot')  # output a graphviz dot file
+    27	bd.savefig('pdf')      # save all figures as pdf
+    28
+    29	bd.done()
 ```
 
-For devices without internet access, `bdsim.micropython` can instead be cross-installed and then transferred into the root device directory. Follow the [Micropython Docs](https://docs.micropython.org/en/latest/reference/packages.html#cross-installing-packages) on how to achieve this, substituting `bdsim.micropython` for the package name used in the tutorial.
+which is just 18 lines of code.
 
-## Pre-Built Firmware
+The red block annotations in the diagram are the names of blocks, and have become names of instances of object that represent those blocks. The blocks can also have names which are used in diagnostics and as labels in plots.
 
-We (should) provide pre-built versions of micropython with `ulab` and other frozen modules required by `bdsim.micropython` for ports included in the [Official MicroPython Repository](https://github.com/micropython/micropython/tree/master/ports). We (should) provide two versions per supported port; with both minimum required and full `ulab` features/submodules.
+In `bdsim` all wires are point to point, a _one-to-many_ connection is implemented by _many_ wires.
 
-## Building Firmware Manually
+Ports are designated using Python indexing and slicing notation, for example `sum[0]`. Whether it is an input or output port depends on context. Blocks are connected by `connect(from, to_1, to_2, ...)` so an index on the first argument refers to an output port, while on the second (or subsequent) arguments refers to an input port. If a port has only a single port then no index is required.
 
-These commands assume to be run on linux with access to required dependencies. Please see [The MicroPython README for more information](https://github.com/micropython/micropython#external-dependencies).
+A bundle of wires can be denoted using slice notation, for example `block[2:4]` refers to ports 2 and 3. When connecting slices of ports the number of wires in each slice must be consistent. You could even do a cross over by connecting `block1[2:4]` to `block2[5:2:-1]`.
 
-### For ESP32
+Line 22 shows a report, in tabular form, showing all the blocks and wires in the diagram.
 
-```bash
-BUILD_DIR=$(pwd)/firmware-build # specify build dir
-git clone https://github.com/micropython/micropython $BUILD_DIR/micropython
-cd $BUILD_DIR/micropython
-git checkout b137d064e9e0bfebd2a59a9b312935031252e742
-# choose micropython version - note v1.12 is incompatible with ulab
-# and v1.13 is currently broken in some ways (on some platforms) https://github.com/BradenM/micropy-cli/issues/167
-# - the patch is not live yet (should be in 1.14), but is at this commit
-git submodule update --init
-cd $BUILD_DIR/micropython/mpy-cross && make # build cross-compiler (required)
+```python
+Blocks::
 
-cd $BUILD_DIR/micropython/ports/esp32
-make ESPIDF= # will display supported ESP-IDF commit hashes
-# output should look like: """
-# ...
-# Supported git hash (v3.3): 9e70825d1e1cbf7988cf36981774300066580ea7
-# Supported git hash (v4.0) (experimental): 4c81978a3e2220674a432a588292a4c860eef27b
-# """
+  id  name                  nin    nout    nstate
+----  ------------------  -----  ------  --------
+0     source.step.demand  0      1       0
+1     function.sum.b1     2      1       0
+2     function.gain.b2    1      1       0
+3     transfer.LTI.plant  1      1       1
+4     sink.scope.b4       2      0       0
+
+Wires::
+
+  id  from    to      description                     type
+----  ------  ------  ------------------------------  -------
+0       0[0]    1[0]  step.demand[0] --> sum.b1[0]    int
+1       0[0]    4[1]  step.demand[0] --> scope.b4[1]  int
+2       3[0]    1[1]  LTI.plant[0] --> sum.b1[1]      float64
+3       1[0]    2[0]  sum.b1[0] --> gain.b2[0]        float64
+4       2[0]    3[0]  gain.b2[0] --> LTI.plant[0]     float64
+5       3[0]    4[0]  LTI.plant[0] --> scope.b4[0]    float64
 ```
 
-Choose an ESPIDF version from one of the options printed by the previous command:
+Line 24 runs the simulation for 5 seconds
 
-```bash
-ESPIDF_VER=9e70825d1e1cbf7988cf36981774300066580ea7
-
-# Download and prepare the SDK
-git clone https://github.com/espressif/esp-idf.git $BUILD_DIR/esp-idf
-cd $BUILD_DIR/esp-idf
-git checkout $ESPIDF_VER
-git submodule update --init --recursive # get idf submodules
-pip install -r ./requirements.txt # install python reqs
+```python
+s.run(5)
 ```
 
-Next, install the ESP32 compiler. If using an ESP-IDF version >= 4.x (chosen by `$ESPIDF_VER` above), this can be done by running `./install.sh`. Otherwise, (for version 3.x) run:
+using the default variable-step RK45 solver and saves output values at least every 0.1s. The scope block pops up a graph
 
-```bash
-cd $BUILD_DIR
+![bdsim output](https://github.com/petercorke/bdsim/raw/master/figs/Figure_1.png)
 
-# for 64 bit linux
-curl https://dl.espressif.com/dl/xtensa-esp32-elf-linux64-1.22.0-80-g6c4433a-5.2.0.tar.gz | tar xvz
+Line 27 causes the graphs in all displayed figures to be saved in the specified format, in this case the file would be called `scope.b4.pdf`.
 
-# for 32 bit
-# curl https://dl.espressif.com/dl/xtensa-esp32-elf-linux32-1.22.0-80-g6c4433a-5.2.0.tar.gz | tar xvz
+Line 28 blocks the script until all figure windows are closed, or the script is killed with SIGINT.
 
-# don't worry about adding to path; we'll specify that later
+To save the results is achieved by
 
-# also, see https://docs.espressif.com/projects/esp-idf/en/v3.3.2/get-started for more info
+```python
+out = s.run(5, dt=0.1)
 ```
 
-Next, download `ulab`'s source code and configure required features:
+The result `out` is effectively a structure with elements
 
-TODO: indicate minimum `ulab` features required by `bdsim.micropython`
+- `t` the time vector: ndarray, shape=(M,)
+- `x` is the state vector: ndarray, shape=(M,N)
+- `xnames` is a list of the names of the states corresponding to columns of `x`, eg. "plant.x0"
 
-```bash
-git clone https://github.com/v923z/micropython-ulab $BUILD_DIR/ulab
-cd $BUILD_DIR/ulab
-# this commit hash is v1.6.0
-git checkout c71920e18636a1e8350cb22d53b119221e0318fc
+Line 26 attempts to produce something like a real block diagram by generating produce a [Graphviz](https://www.graphviz.org) .dot file. Using `dot`
+we can generate a graphic
 
-# you can look through and enable/disable ulab features by editing $BUILD_DIR/ulab/code/ulab.h
-# the default enables all features
+```shell
+% dot -Tpng -o demo.png demo.dot
 ```
 
-Finally, build the firmware:
+or `neato`
 
-```bash
-cd $BUILD_DIR/micropython/ports/esp32
-# temporarily add esp32 compiler to path
-export PATH=$BUILD_DIR/xtensa-esp32-elf/bin:$PATH
-export ESPIDF=$BUILD_DIR/esp-idf # req'd by Makefile
-export BOARD=GENERIC # options are dirs in ./boards
-export USER_C_MODULES=$BUILD_DIR/ulab # include ulab in firmware
-
-make submodules & make all
+```shell
+% neato -Tpng -o demo.png demo.dot
 ```
 
-Plug in your ESP32 via USB and then flash it:
+![output of neato](https://github.com/petercorke/bdsim/raw/master/figs/bd1.png)
 
-```bash
-make erase && make deploy
-```
+While this is topologically correct, it's not quite the way we would expect the diagram to be drawn. `dot` ignores the `pos` options on the blocks while `neato` respects them, but is prone to drawing all the lines on top of each other.
 
-# Development
+Sources are shown as 3D boxes, sinks as folders, functions as boxes (apart from gains which are triangles and summing junctions which are points), and transfer functions as connectors (look's like a gate). To create a decent looking plot you need to manually place the blocks using the `pos` argument to place them. Unit spacing in the x- and y-directions is generally sufficient.
 
-A conda environment is provided with a CPython version closest to the equivalent micropython available; 3.4 (as of writing), as well as the micropython interpreter itself built with `ulab` using similar to steps above (for unix).
+# Other examples
 
-The CPython will aid development as you will get the same syntax errors in your editor as on your device. You should set your editor's language server's interpreter to this one for that to work. Note that this isn't foolproof - use of standard library may be different in MPy compared to CPy.
+In the folder `bdsim/examples` you can find a couple of runnable examples:
 
-The MicroPython interpreter can be used to run tests on unix and distribute this package as a upip installable. The installable can be used to quickly run tests on your device.
+- [`eg1.py`](https://github.com/petercorke/bdsim/blob/master/examples/eg1.py) the example given above
+- [`waveform.py`](https://github.com/petercorke/bdsim/blob/master/examples/waveform.py) two signal generators connected to two scopes
 
-Install conda environment:
+Examples from Chapter four of _Robotics, Vision & Control (2017)_:
 
-```bash
-conda env update -f environment.yml
-```
+- [`rvc4_2.py`](https://github.com/petercorke/bdsim/blob/master/examples/rvc4_2.py) Fig 4.2 - a car-like vehicle with bicycle kinematics driven by a rectangular pulse steering signal
+- [`rvc4_4.py`](https://github.com/petercorke/bdsim/blob/master/examples/rvc4_4.py) Fig 4.4 - a car-like vehicle driving to a point
 
-Run tests on unix:
+![RVC Figure 4.4](https://github.com/petercorke/bdsim/raw/master/figs/rvc4_4.gif)
 
-```bash
-# TODO: probably a bash script
-```
+- [`rvc4_6.py`](https://github.com/petercorke/bdsim/blob/master/examples/rvc4_6.py) Fig 4.6 - a car-like vehicle driving to/along a line
 
-Run tests on device:
+![RVC Figure 4.6](https://github.com/petercorke/bdsim/raw/master/figs/rvc4_6.gif)
 
-```bash
-# TODO: also probably a bash script
-# 1. use mpy-cross to produce .mpy modules for dist. pkgs and tests
-# 2. upload to device via rshell
-# 3. run tests on device
+- [`rvc4_8.py`](https://github.com/petercorke/bdsim/blob/master/examples/rvc4_8.py) Fig 4.8 - a car-like vehicle using pure-pursuit trajectory following
 
-# Note that the above method requires enough RAM to store bdsim.micropython, which may not be viable. Alternatively:
-# 1. recompile firmware with bdsim.micropython as frozen module. Reflash device.
-# 2. use mpy-cross to produce .mpy modules for tests
-# 3. upload to device via rshell
-# 4. run tests on device
+![RVC Figure 4.6](https://github.com/petercorke/bdsim/raw/master/figs/rvc4_8.gif)
 
-# A third hybrid approach may also be viable. Keep modules small so that individual frozen modules on the device may be 'overridden' by a local (changed) .mpy module for testing. If an OOM error occurs, recompile the entire module as frozen in firmware and reflash the device. Rinse and repeat.
-```
+- [`rvc4_11.py`](https://github.com/petercorke/bdsim/blob/master/examples/rvc4_11.py) Fig 4.11 a car-like vehicle driving to a pose
+
+![RVC Figure 4.11](https://github.com/petercorke/bdsim/raw/master/figs/rvc4_11.gif)
+
+Figs 4.8 (pure pursuit) and Fig 4.21 (quadrotor control) are yet to be done.
+
+# Limitations
+
+There are lots! The biggest is that `bdsim` is based on a very standard variable-step integrator from the scipy library. For discontinuous inputs (step, square wave, triangle wave, piecewise constant) the transitions get missed. This also makes it inaccurate to simulate hybrid discrete-continuous time systems. We really need a better integrator, perhaps [`odedc`](https://help.scilab.org/docs/6.1.0/en_US/odedc.html) from SciLab could be integrated.

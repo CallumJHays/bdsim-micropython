@@ -1,0 +1,9 @@
+[submodule "pkgs/micropython/firmware/micropython"]
+	path = pkgs/micropython/firmware/micropython
+	url = https://github.com/micropython/micropython
+[submodule "pkgs/micropython/firmware/esp-idf"]
+	path = pkgs/micropython/firmware/esp-idf
+	url = https://github.com/espressif/esp-idf.git
+[submodule "pkgs/micropython/firmware/ulab"]
+	path = pkgs/micropython/firmware/ulab
+	url = https://github.com/v923z/micropython-ulab
