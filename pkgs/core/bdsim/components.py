@@ -8,7 +8,8 @@ from typing import Any, List, Optional as Opt, Tuple, Union
 
 from typing_extensions import Literal
 
-from bdsim import BlockDiagram, np
+from bdsim import np
+from bdsim.blockdiagram import BlockDiagram
 
 from collections import UserDict
 
@@ -93,7 +94,7 @@ class Plug:
 
     """
 
-    def __init__(self, block: 'Block', port: int = 0, type: Literal['start', 'end'] = None):
+    def __init__(self, block: 'Block', port: int = 0, type: Literal["start", "end"] = None):
 
         self.block = block
         self.port = port

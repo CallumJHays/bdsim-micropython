@@ -8,7 +8,5 @@ setup_pkg(
     name='bdsim.micropython',
     packages=find_namespace_packages(),
     description='MicroPython IO blocks and realtime executor',
-    long_description=(here / 'README.md').open().read(),
-    install_requires=['bdsim.core'],
-    here=here
+    install_requires=['bdsim.core']
 )

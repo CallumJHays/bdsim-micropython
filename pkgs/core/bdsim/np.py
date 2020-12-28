@@ -107,7 +107,7 @@ try:
             # Ensure that scalars won't up-cast unless warranted
             # TODO: ensure that this actually works for dtype coercion
             # likelihood is we're going to have to do some funky logic for this
-            final_dtype = max(*arraytypes, *scalartypes)
+            final_dtype = max(arraytypes + scalartypes)
             if final_dtype is not None:
                 for idx in scalars:
                     objs[idx] = array(objs[idx], dtype=final_dtype)

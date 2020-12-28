@@ -1,3 +1,5 @@
-# `bdsim.matplotlib`
+# `bdsim.raspberrypi`
 
-Provides local graphics functionality for bdsim, such as SCOPE and SCOPEXY blocks, primariliy facilitated by `matplotlib`.
+Provides IO block specific to the RaspberryPi, as well as special `picamera` module integration with `bdsim.vision`.
+
+This module should probably be in another repository.
