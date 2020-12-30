@@ -9,11 +9,11 @@ Function blocks:
 
 # The constructor of each class ``MyClass`` with a ``@block`` decorator becomes a method ``MYCLASS()`` of the BlockDiagram instance.
 
-import bdsim.np
 import scipy.interpolate
 import math
+from typing_extensions import Literal
 
-from bdsim.components import FunctionBlock, block
+from bdsim import np, block, FunctionBlock
 
 
 # PID
@@ -41,7 +41,7 @@ class Sum(FunctionBlock):
        +------------+---------+---------+
     """
 
-    def __init__(self, signs, *inputs, angles=False, **kwargs):
+    def __init__(self, signs: Literal['+', '-'], *inputs, angles=False, **kwargs):
         """
         :param signs: signs associated with input ports, + or -
         :type signs: str
@@ -66,23 +66,20 @@ class Sum(FunctionBlock):
         super().__init__(nin=len(signs), nout=1, inputs=inputs, **kwargs)
         assert isinstance(signs, str), 'first argument must be signs string'
         self.type = 'sum'
-        assert all([x in '+-' for x in signs]), 'invalid sign'
+        assert all(x in '+-' for x in signs), 'invalid sign'
         self.signs = signs
         self.angles = angles
 
     def output(self, t=None):
-        for i, input in enumerate(self.inputs):
-            if self.signs[i] == '-':
-                input = -input
-            if i == 0:
-                sum = input
-            else:
-                sum = sum + input
+        from math import pi
+
+        res = sum(n if sign == '+' else -n
+                  for n, sign in zip(self.inputs, self.signs))
 
         if self.angles:
-            sum = np.mod(sum + math.pi, 2 * math.pi) - math.pi
+            res = (res + pi) % (2 * pi) - pi
 
-        return [sum]
+        return [res]
 
 # ------------------------------------------------------------------------ #
 
@@ -106,7 +103,7 @@ class Prod(FunctionBlock):
        +------------+---------+---------+
     """
 
-    def __init__(self, ops, *inputs, matrix=False, **kwargs):
+    def __init__(self, ops: Literal['*', '/'], *inputs, matrix=False, **kwargs):
         """
         :param ops: operations associated with input ports * or /
         :type ops: str
@@ -136,26 +133,20 @@ class Prod(FunctionBlock):
         self.ops = ops
         self.matrix = matrix
 
-    def output(self, t=None):
-        for i, input in enumerate(self.inputs):
-            if i == 0:
-                if self.ops[i] == '*':
-                    prod = input
-                else:
-                    if self.matrix:
-                        prod = numpy.linalg.inv(input)
-                    prod = 1.0 / input
+    def output(self, _t=None):
+        prod = 1
+
+        for x, op in zip(self.inputs, self.ops):
+            if self.matrix:
+                if op == '/':
+                    x = np.linalg.inv(x)
+                prod @= x
+
             else:
-                if self.ops[i] == '*':
-                    if self.matrix:
-                        prod = prod @ input
-                    else:
-                        prod *= input
+                if op == '/':
+                    prod /= x
                 else:
-                    if self.matrix:
-                        prod = prod @ numpy.linalg.inv(input)
-                    else:
-                        prod /= input
+                    prod *= x
 
         return [prod]
 
@@ -220,7 +211,7 @@ class Gain(FunctionBlock):
                 # postmultiply by gain
                 return [input @ self.gain]
         else:
-            return [self.inputs[0] * self.gain]
+            return [input * self.gain]
 
 # ------------------------------------------------------------------------ #
 
@@ -525,9 +516,5 @@ class Interpolate(FunctionBlock):
 
 
 if __name__ == "__main__":
-
-    import pathlib
-    import os.path
-
-    exec(open(os.path.join(pathlib.Path(
-        __file__).parent.absolute(), "test_functions.py")).read())
+    from .test_functions import unittest
+    unittest.main()
