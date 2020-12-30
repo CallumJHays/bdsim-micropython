@@ -7,5 +7,5 @@
     ".micropy/bdsim.micropython"
   ],
   "python.linting.pylintEnabled": true,
-  "python.pythonPath": "/home/cal/.conda/envs/bdsim.micropython/bin/python"
+  "python.pythonPath": "/home/cal/.conda/envs/bdsim/bin/python"
 }
