@@ -1,9 +1,8 @@
 from setuptools import find_namespace_packages
-from pathlib import Path
+import sys
+sys.path.append('../../')
+from shared_setup import setup_pkg  # nopep8
 
-from shared_setup import setup_pkg
-
-# just leave the types in the code
 setup_pkg(
     name='bdsim.core',
     packages=find_namespace_packages(),

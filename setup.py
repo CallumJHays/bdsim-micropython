@@ -9,7 +9,9 @@ setup_pkg(
     name='bdsim',
     packages=[],
     description='Simulate dynamic systems expressed in block diagram form using Python.',  # TODO
-    long_description=(here / 'README.md').open().read(),
-    install_requires=['core', 'matplotlib', 'server', 'sim',
-                      'realtime', 'robots', 'webapp-full'],
-    here=here)
+    install_requires=['bdsim.core', 'bdsim.matplotlib', 'bdsim.server', 'bdsim.sim',
+                      'bdsim.realtime', 'bdsim.robots', 'bdsim.webapp-full'],
+    extras_require={
+        # include the vision package if necessary (needs OPENCV)
+        'vision': ['bdsim.vision']
+    })

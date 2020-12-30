@@ -1,8 +1,7 @@
 from setuptools import find_namespace_packages
-from pathlib import Path
-from shared_setup import setup_pkg
-
-here = Path(__file__).parent.absolute()
+import sys
+sys.path.append('../../')
+from shared_setup import setup_pkg  # nopep8
 
 setup_pkg(
     name='bdsim.realtime',
