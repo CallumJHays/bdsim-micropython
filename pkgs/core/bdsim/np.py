@@ -5,12 +5,13 @@ from typing import List
 try:
     _float = float  # type: ignore
     # see float assignment below
-    from ulab import *
-    import math
+    from ulab import *  # this doesn't import submodules, have to do that below
+    from ulab import linalg, fft
 
     _DType = int  # hidden by default from ulab export
     # use the original float class rather than the shadowing ulab dtype (an enum int)
     float: type = _float
+    ndarray = array
 
     # def isfinite(a: array):
     #     if len(a) > 0:
@@ -121,6 +122,7 @@ try:
             return 0
 
     r_ = RClass()
+
 
 except ImportError:
     # from numpy import *  # type: ignore
