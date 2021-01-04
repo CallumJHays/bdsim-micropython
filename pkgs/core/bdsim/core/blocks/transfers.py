@@ -9,14 +9,8 @@ Transfer blocks:
 # The constructor of each class ``MyClass`` with a ``@block`` decorator becomes a method ``MYCLASS()`` of the BlockDiagram instance.
 
 
-import bdsim.np
 import math
-from math import sin, cos, atan2, sqrt, pi
-
-import matplotlib.pyplot as plt
-import inspect
-
-from bdsim.components import TransferBlock, block
+from bdsim import TransferBlock, block, np
 
 # ------------------------------------------------------------------------ #
 

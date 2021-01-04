@@ -362,20 +362,26 @@ class Function(FunctionBlock):
         self.nin = nin
         self.type = 'function'
 
-        if isinstance(func, (list, tuple)):
-            for f in func:
-                assert callable(f), 'Function must be a callable'
+        try:
+            import inspect  # micropython doesn't have this
+
+            if isinstance(func, (list, tuple)):
+                for f in func:
+                    assert callable(f), 'Function must be a callable'
+                    if kwargs is None:
+                        # we can check the number of arguments
+                        n = len(inspect.signature(f).parameters)
+                        assert nin + len(args) == n, 'argument count mismatch'
+                self.nout = len(func)
+
+            elif callable(func):
                 if kwargs is None:
                     # we can check the number of arguments
                     n = len(inspect.signature(func).parameters)
                     assert nin + len(args) == n, 'argument count mismatch'
-            self.nout = len(func)
-        elif callable(func):
-            if kwargs is None:
-                # we can check the number of arguments
-                n = len(inspect.signature(func).parameters)
-                assert nin + len(args) == n, 'argument count mismatch'
-            self.nout = nout
+                self.nout = nout
+        except:
+            ...
 
         self.func = func
         if dict:
@@ -505,7 +511,8 @@ class Interpolate(FunctionBlock):
     def start(self, **kwargs):
         if self.time:
             assert self.x[0] <= 0, 'interpolation not defined for t=0'
-            assert self.x[-1] >= self.T, 'interpolation not defined for t=T'
+            # PS: below used to be >= self.T - intended?
+            assert self.x[-1] >= self.time, 'interpolation not defined for t=T'
 
     def output(self, t=None):
         if self.time:

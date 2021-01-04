@@ -4,12 +4,12 @@
 Components of the simulation system, namely blocks, wires and plugs.
 """
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional as Opt, Tuple, Union
-
+from typing import Any, List, Optional as Opt, Tuple, Union, TYPE_CHECKING
 from typing_extensions import Literal
 
-from bdsim import np
-from bdsim.blockdiagram import BlockDiagram
+from bdsim.core import np
+if TYPE_CHECKING:  # this lets us use type-hints without circular dependency
+    from bdsim.core import BlockDiagram
 
 from collections import UserDict
 
@@ -250,7 +250,7 @@ class Wire:
     another block.
     """
 
-    def __init__(self, start: Opt[Plug] = None, end: Plug = None, name: str = None):
+    def __init__(self, start: Plug = None, end: Plug = None, name: str = None):
 
         self.name = name
         self.id = None
@@ -448,10 +448,10 @@ class Block(ABC):
                  inames: List[str] = None,
                  onames: List[str] = None,
                  snames: List[str] = None,
-                 pos: Opt[Tuple[int, int]] = None,
+                 pos: Tuple[int, int] = None,
                  nin: int = None,
                  nout: int = None,
-                 bd: BlockDiagram = None,
+                 bd: 'BlockDiagram' = None,
                  *inputs: Union['Block', Plug],
                  **kwargs):
 
@@ -477,9 +477,9 @@ class Block(ABC):
         # appease pylint
         self.portnames = self.portnames  # this gets set in Block.__new__()
 
-        # these get set in BlockDiagram.compile()
-        self.inports: List[Wire] = []
-        self.outports: List[Wire] = []
+        # these get set in BlockDiagram.compile() They are None until wired..?
+        self.inports: List[Opt[Wire]] = []
+        self.outports: List[List[Wire]] = []
 
         if nin is not None:
             self.nin = nin
@@ -765,7 +765,7 @@ class Block(ABC):
     def add_outport(self, w: Wire):
         port = w.start.port
         assert port < len(self.outports), 'port number too big'
-        self.outports[port] = w
+        self.outports[port].append(w)
 
     def add_inport(self, w: Wire):
         port = w.end.port
@@ -884,6 +884,9 @@ class TransferBlock(Block):
             self._x0) == self.nstates, 'incorrect length for initial state'
         assert self.nin > 0 or self.nout > 0, 'no inputs or outputs specified'
 
+    @abstractmethod
+    def deriv(self) -> np.ndarray: ...
+
 
 class FunctionBlock(Block):
     """
@@ -901,7 +904,7 @@ class FunctionBlock(Block):
 
 class SubsystemBlock(Block):
     """
-    A Subsystem is a subclass of block that contains a group of blocks within it
+    A Subsystem is a subclass of block thafrom bdsim. import npt contains a group of blocks within it
     and a predefined set of inputs and outputs. It is synonymous to Simulink's groups.
 
     When Subclassing SubsystemBlock, all connections between blocks within should be
@@ -909,9 +912,10 @@ class SubsystemBlock(Block):
     """
     blockclass = 'subsystem'
 
-    def __init__(self, **kwargs):
+    def __init__(self, ssvar: str = None, **kwargs):
         # print('Subsystem constructor')
         super().__init__(**kwargs)
+        self.ssvar = ssvar
 
     # def _run(self, sub_block, inputs, t=None):
     #     "helper function to make processing internal blocks less cumbersome"
@@ -923,3 +927,8 @@ class SubsystemBlock(Block):
     #     for block in sub_blocks:
     #         inputs = self._run(block, inputs, t)
     #     return inputs
+
+
+# module exports
+__all__ = ('block', 'Block', 'Wire', 'Plug', 'FunctionBlock', 'SinkBlock',
+           'SourceBlock', 'SubsystemBlock', 'Struct', 'TransferBlock', 'blocklist')

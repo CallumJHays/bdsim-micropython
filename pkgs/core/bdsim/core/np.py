@@ -1,6 +1,6 @@
 # numpy compatability module to share a common API between
 # CPython numpy and MicroPython ulab
-from typing import List
+from typing import List, Type
 
 try:
     _float = float  # type: ignore
@@ -11,7 +11,7 @@ try:
     _DType = int  # hidden by default from ulab export
     # use the original float class rather than the shadowing ulab dtype (an enum int)
     float: type = _float
-    ndarray = array
+    ndarray = ulab.array
 
     # def isfinite(a: array):
     #     if len(a) > 0:
@@ -66,7 +66,7 @@ try:
             if not isinstance(key, tuple):
                 key = (key,)
 
-            objs: List[array] = []
+            objs: List[ndarray] = []
             scalars: List[int] = []
             arraytypes: List[_DType] = []
             scalartypes: List[_DType] = []
@@ -125,5 +125,4 @@ try:
 
 
 except ImportError:
-    # from numpy import *  # type: ignore
-    pass
+    from numpy import *

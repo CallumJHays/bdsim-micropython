@@ -17,11 +17,9 @@ from collections import Counter, namedtuple
 from typing import List
 from ansitable import ANSITable, Column
 
-from .blocks.functions import Gain, Sum
-from .tunable import Tunable
-from . import np
-from .tuner import Tuner
-from .components import Block, FunctionBlock, Plug, SinkBlock, blocklist, Wire, SourceBlock, TransferBlock, Struct
+from bdsim.core.tunable import Tunable
+from bdsim.core.tuner import Tuner
+from bdsim.core import np, Block, FunctionBlock, Plug, SinkBlock, blocklist, Wire, SourceBlock, TransferBlock, Struct, SubsystemBlock
 
 debuglist = []  # ('propagate', 'state', 'deriv')
 
@@ -448,7 +446,7 @@ class BlockDiagram:
             print('\nCompiling:')
 
         # process all subsystem imports
-        ssblocks = [b for b in self.blocklist if b.type == 'subsystem']
+        ssblocks = [b for b in self.blocklist if isinstance(b, SubsystemBlock)]
         for b in ssblocks:
             print('  importing subsystem', b.name)
             if b.ssvar is not None:
@@ -484,8 +482,8 @@ class BlockDiagram:
 
         # initialize lists of input and output ports
         for b in self.blocklist:
-            b.outports = [[] for i in range(0, b.nout)]
-            b.inports = [None for i in range(0, b.nin)]
+            b.outports = [[] for _ in range(0, b.nout)]
+            b.inports = [None for _ in range(0, b.nin)]
 
         # connect the source and destination blocks to each wire
         for w in self.wirelist:
@@ -968,12 +966,12 @@ class BlockDiagram:
 
         # split the state vector to stateful blocks
         for b in self.blocklist:
-            if b.blockclass == 'transfer':
+            if isinstance(b, TransferBlock):
                 x = b.setstate(x)
 
         # process blocks with initial outputs and propagate
         for b in self.blocklist:
-            if b.blockclass in ('source', 'transfer'):
+            if isinstance(b, (SourceBlock, TransferBlock)):
                 self._propagate(b, t)
 
         # check we have values for all
@@ -984,7 +982,7 @@ class BlockDiagram:
         # gather the derivative
         YD = np.array([])
         for b in self.blocklist:
-            if b.blockclass == 'transfer':
+            if isinstance(b, TransferBlock):
                 assert b.updated, str(b) + ' has incomplete inputs'
                 yd = b.deriv().flatten()
                 YD = np.r_[YD, yd]
@@ -1107,64 +1105,6 @@ class BlockDiagram:
         for b in self.blocklist:
             if hasattr(b, 'savefig'):  # check for GraphicsBlock w/o having to import it
                 b.savefig(format=format, **kwargs)  # type: ignore
-
-    def dotfile(self, file):
-        """
-        Write a GraphViz dot file representing the network.
-
-        :param file: Name of file to write to
-        :type file: str
-
-        The file can be processed using neato or dot::
-
-            % dot -Tpng -o out.png dotfile.dot
-
-        """
-        with open(file, 'w') as file:
-
-            header = r"""digraph G {
-
-    graph [splines=ortho, rankdir=LR]
-    node [shape=box]
-
-    """
-            file.write(header)
-            # add the blocks
-            for b in self.blocklist:
-                options = []
-                if isinstance(b, SourceBlock):
-                    options.append("shape=box3d")
-                elif isinstance(b, SinkBlock):
-                    options.append("shape=folder")
-                elif isinstance(b, FunctionBlock):
-                    if isinstance(b, Gain):
-                        options.append("shape=triangle")
-                        options.append("orientation=-90")
-                        options.append('label="{:g}"'.format(b.gain))
-                    elif isinstance(b, Sum):
-                        options.append("shape=point")
-                elif isinstance(b, TransferBlock):
-                    options.append("shape=component")
-                if b.pos is not None:
-                    options.append('pos="{:g},{:g}!"'.format(
-                        b.pos[0], b.pos[1]))
-                options.append(
-                    'xlabel=<<BR/><FONT POINT-SIZE="8" COLOR="blue">{:s}</FONT>>'
-                    .format(b.type))
-                file.write('\t"{:s}" [{:s}]\n'.format(b.name,
-                                                      ', '.join(options)))
-
-            # add the wires
-            for w in self.wirelist:
-                options = []
-                # options.append('xlabel="{:s}"'.format(w.name))
-                if isinstance(w.end.block, Sum):
-                    options.append('headlabel="{:s} "'.format(
-                        w.end.block.signs[w.end.port]))
-                file.write('\t"{:s}" -> "{:s}" [{:s}]\n'.format(
-                    w.start.block.name, w.end.block.name, ', '.join(options)))
-
-            file.write('}\n')
 
     def blockvalues(self):
         for b in self.blocklist:

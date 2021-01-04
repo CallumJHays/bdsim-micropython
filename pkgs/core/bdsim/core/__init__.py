@@ -1,4 +1,4 @@
 # re-export for ease-of-use
-from .components import *
-from . import np, blocks
+from . import np
+from .components import *  # type: ignore
 from .blockdiagram import BlockDiagram
