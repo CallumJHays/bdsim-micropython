@@ -10,8 +10,7 @@ Robot blocks:
 
 # TODO: quadrotor dyanmics and display
 
-from bdsim import np
-from bdsim.components import TransferBlcok, block
+from bdsim.core import np, TransferBlock, block
 from math import sin, cos, atan2, tan, sqrt, pi
 
 
@@ -161,7 +160,7 @@ class Unicycle(TransferBlock):
         self.type = 'unicycle'
 
         if x0 is None:
-            self._x0 = np.zeros((slef.nstates,))
+            self._x0 = np.zeros((self.nstates,))
         else:
             assert len(x0) == self.nstates, "x0 is {:d} long, should be {:d}".format(
                 len(x0), self.nstates)
@@ -239,7 +238,7 @@ class DiffSteer(TransferBlock):
         self.W = W
 
         if x0 is None:
-            self._x0 = np.zeros((slef.nstates,))
+            self._x0 = np.zeros((self.nstates,))
         else:
             assert len(x0) == self.nstates, "x0 is {:d} long, should be {:d}".format(
                 len(x0), self.nstates)
@@ -566,7 +565,8 @@ class MultiRotor(TransferBlock):
             dz[0] = 0
 
         # row sum of torques
-        do = np.linalg.inv(model['J']) @ (np.cross(-o, model['J'] @ o) + np.sum(tau, axis=1) + np.sum(Q, axis=1))
+        do = np.linalg.inv(model['J']) @ (np.cross(-o, model['J']
+                                                   @ o) + np.sum(tau, axis=1) + np.sum(Q, axis=1))
 
         # stash the flapping information for plotting
         self.a1s = a1s

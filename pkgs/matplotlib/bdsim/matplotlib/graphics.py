@@ -1,10 +1,15 @@
+from math import pi, sin, cos
 import spatialmath.base as sm
+
+import matplotlib
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
-from matplotlib import animation
+from matplotlib import animation  # type: ignore
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import Polygon
 
-from bdsim.core.blocks.sinks import SinkBlock
-from bdsim.tuning.tuners.tcpclient_tuner import TcpClientTuner
+from bdsim.core import SinkBlock, block, np
+from bdsim.core.tuning.tuners.tcpclient_tuner import TcpClientTuner
 
 
 class GraphicsBlock(SinkBlock):
@@ -22,12 +27,10 @@ class GraphicsBlock(SinkBlock):
     The animation is saved as an MP4 video in the specified file.
     """
 
-    def __init__(self, output_file: Opt[str] = None, fig: Figure = None, **kwargs):
+    def __init__(self, output_file: str = None, fig: Figure = None, **kwargs):
         super().__init__(**kwargs)
 
-        if not self.bd.options.animation:
-            output_file = None
-        self.output_file = output_file
+        self.output_file = None if not self.bd.options.animation else output_file
 
         self.fig = fig
 
@@ -85,8 +88,9 @@ class GraphicsBlock(SinkBlock):
 
             dpiscale = 1
             if mpl_backend == 'Qt5Agg':
-                self.bd._lazy_init_qt_app()
-                screen = self.bd.qt_app.primaryScreen()
+                from PyQt5 import QtWidgets
+                app = QtWidgets.QApplication([])
+                screen = app.primaryScreen()
                 print('Screen: %s' % screen.name())
                 size = screen.size()
                 print('Size: %d x %d' % (size.width(), size.height()))
@@ -250,7 +254,7 @@ class Scope(GraphicsBlock):
         # create the plot
         if self.bd.options.graphics and not self.tuner:
             super().reset()   # TODO should this be here?
-            self.fig = self.bd.create_figure()
+            self.fig = self.create_figure()
             self.ax = self.fig.gca()
             # figure out the labels
             if self.labels is None:
@@ -389,7 +393,7 @@ class ScopeXY(GraphicsBlock):
         if self.bd.options.graphics:
             super().reset()
 
-            self.fig = self.bd.create_figure()
+            self.fig = self.create_figure()
             self.ax = self.fig.gca()
 
             args = []

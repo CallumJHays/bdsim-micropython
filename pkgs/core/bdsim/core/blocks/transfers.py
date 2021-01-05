@@ -10,7 +10,7 @@ Transfer blocks:
 
 
 import math
-from bdsim import TransferBlock, block, np
+from bdsim.core import TransferBlock, block, np
 
 # ------------------------------------------------------------------------ #
 

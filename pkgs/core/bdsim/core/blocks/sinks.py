@@ -10,14 +10,7 @@ Sink blocks:
 
 # The constructor of each class ``MyClass`` with a ``@block`` decorator becomes a method ``MYCLASS()`` of the BlockDiagram instance.
 
-from math import pi, sin, cos
-
-import bdsim.np
-import matplotlib.pyplot as plt
-from matplotlib.pyplot import Polygon
-
-
-from ..components import SinkBlock, block
+from ..components import SinkBlock, block, np
 
 
 # ------------------------------------------------------------------------ #

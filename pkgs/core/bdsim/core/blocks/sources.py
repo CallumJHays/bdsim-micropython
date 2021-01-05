@@ -9,10 +9,9 @@ Source blocks:
 # The constructor of each class ``MyClass`` with a ``@block`` decorator becomes a method ``MYCLASS()`` of the BlockDiagram instance.
 
 
-import bdsim.np
 import math
 
-from bdsim.core.components import SourceBlock, block
+from bdsim.core import SourceBlock, block, np
 
 
 # ------------------------------------------------------------------------ #

@@ -1,104 +1,236 @@
-#MDL_QUADCOPTER Dynamic parameters for a quadrotor.
-#
-# MDL_QUADCOPTER is a script creates the workspace variable quad which
-# describes the dynamic characterstics of a quadrotor flying robot.
-#
-# Properties::
-#
-# This is a structure with the following elements:
-#
-# nrotors   Number of rotors (1x1)
-# J         Flyer rotational inertia matrix (3x3)
-# h         Height of rotors above CoG (1x1)
-# d         Length of flyer arms (1x1)
-# nb        Number of blades per rotor (1x1)
-# r         Rotor radius (1x1)
-# c         Blade chord (1x1)
-# e         Flapping hinge offset (1x1)
-# Mb        Rotor blade mass (1x1)
-# Mc        Estimated hub clamp mass (1x1)
-# ec        Blade root clamp displacement (1x1)
-# Ib        Rotor blade rotational inertia (1x1)
-# Ic        Estimated root clamp inertia (1x1)
-# mb        Static blade moment (1x1)
-# Ir        Total rotor inertia (1x1)
-# Ct        Non-dim. thrust coefficient (1x1)
-# Cq        Non-dim. torque coefficient (1x1)
-# sigma     Rotor solidity ratio (1x1)
-# thetat    Blade tip angle (1x1)
-# theta0    Blade root angle (1x1)
-# theta1    Blade twist angle (1x1)
-# theta75   3/4 blade angle (1x1)
-# thetai    Blade ideal root approximation (1x1)
-# a         Lift slope gradient (1x1)
-# A         Rotor disc area (1x1)
-# gamma     Lock number (1x1)
-#
-#
-# Notes::
-# - SI units are used.
-#
-# References::
-# - Design, Construction and Control of a Large Quadrotor micro air vehicle.
-#   P.Pounds, PhD thesis, 
-#   Australian National University, 2007.
-#   http://www.eng.yale.edu/pep5/P_Pounds_Thesis_2008.pdf
-# - This is a heavy lift quadrotor
-#
+import re
+from bdsim.core.blockdiagram import BlockDiagram
+from scipy import integrate
+from bdsim.core import Struct, Block, Plug, np
 
-import numpy as np
-from math import pi, sqrt, inf
+# print a progress bar
+# https://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console
 
-quadrotor = {}
-quadrotor['nrotors'] = 4                # 4 rotors
-quadrotor['g'] = 9.81                   # g     Gravity
-quadrotor['rho'] = 1.184                # rho   Density of air
-quadrotor['muv'] = 1.5e-5               # muv   Viscosity of air
 
-# Airframe
-quadrotor['M'] = 4                      # M    Mass
-Ixx = 0.082
-Iyy = 0.082
-Izz = 0.149 #0.160
-quadrotor['J'] = np.diag([Ixx, Iyy, Izz])    # I   Flyer rotational inertia matrix     3x3
+def printProgressBar(fraction,
+                     prefix='',
+                     suffix='',
+                     decimals=1,
+                     length=50,
+                     fill='█',
+                     printEnd="\r"):
 
-quadrotor['h'] = -0.007                 # h    Height of rotors above CoG
-quadrotor['d'] = 0.315                  # d    Length of flyer arms
+    percent = ("{0:." + str(decimals) + "f}").format(fraction * 100)
+    filledLength = int(length * fraction)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print('\r{} |{}| {}% {}'.format(
+        prefix, bar, percent, suffix), end=printEnd)
 
-#Rotor
-quadrotor['nb'] = 2                     # b    Number of blades per rotor
-quadrotor['r'] = 0.165                  # r    Rotor radius
 
-quadrotor['c'] = 0.018                  # c    Blade chord
+def simulate(bd: BlockDiagram,
+             T=10.0,
+             dt=0.1,
+             solver='RK45',
+             block=False,
+             checkfinite=True,
+             watch=[],
+             **kwargs):
+    """
+        Run the block diagram
 
-quadrotor['e'] = 0.0                    # e    Flapping hinge offset
-quadrotor['Mb'] = 0.005                 # Mb   Rotor blade mass
-quadrotor['Mc'] = 0.010                 # Mc   Estimated hub clamp mass
-quadrotor['ec'] = 0.004                 # ec   Blade root clamp displacement
-quadrotor['Ib'] = quadrotor['Mb'] * (quadrotor['r'] - quadrotor['ec'])**2 / 4       # Ib      Rotor blade rotational inertia
-quadrotor['Ic'] = quadrotor['Mc'] * (quadrotor['ec'])**2 / 4                        # Ic      Estimated root clamp inertia
-quadrotor['mb'] = quadrotor['g'] * (quadrotor['Mc'] * quadrotor['ec'] / 2 + quadrotor['Mb'] * quadrotor['r'] /2)    #   mb  Static blade moment
-quadrotor['Ir'] = quadrotor['nb'] * (quadrotor['Ib'] + quadrotor['Ic'])             # Ir      Total rotor inertia
+        :param T: maximum integration time, defaults to 10.0
+        :type T: float, optional
+        :param dt: maximum time step, defaults to 0.1
+        :type dt: float, optional
+        :param solver: integration method, defaults to ``RK45``
+        :type solver: str, optional
+        :param block: matplotlib block at end of run, default False
+        :type block: bool
+        :param checkfinite: error if inf or nan on any wire, default True
+        :type checkfinite: bool
+        :param watch: list of input ports to log
+        :type watch: list
+        :param ``**kwargs``: passed to ``scipy.integrate``
+        :return: time history of signals and states
+        :rtype: Sim class
 
-quadrotor['Ct'] = 0.0048                                                            # Ct      Non-dim. thrust coefficient
-quadrotor['Cq'] = quadrotor['Ct'] * sqrt(quadrotor['Ct']/2)                         # Cq      Non-dim. torque coefficient
+        Assumes that the network has been compiled.
 
-quadrotor['sigma'] = quadrotor['c'] * quadrotor['nb'] / (pi * quadrotor['r'])       # sigma   Rotor solidity ratio
-quadrotor['thetat'] = 6.8 * (pi / 180)                                              # thetat  Blade tip angle
-quadrotor['theta0'] = 14.6 * (pi / 180)                                             # theta0  Blade root angle
-quadrotor['theta1'] = quadrotor['thetat'] - quadrotor['theta0']                     # theta1  Blade twist angle
-quadrotor['theta75'] = quadrotor['theta0'] + 0.75 * quadrotor['theta1']             # theta76 3/4 blade angle
-try:
-    quadrotor['thetai'] = quadrotor['thetat'] * (quadrotor['r'] / quadrotor['e'])       # thetai  Blade ideal root approximation
-except ZeroDivisionError:
-    quadrotor['thetai'] = inf
-quadrotor['a'] = 5.5                                                                # a       Lift slope gradient
+        Graphics display in all blocks can be disabled using the `graphics`
+        option to the ``BlockDiagram`` instance.
 
-# derived constants
-quadrotor['A'] = pi*quadrotor['r']**2                                               # A       Rotor disc area
-quadrotor['gamma'] = quadrotor['rho'] * quadrotor['a'] * quadrotor['c'] * quadrotor['r']**4 / (quadrotor['Ib'] + quadrotor['Ic'])  # gamma   Lock number
 
-quadrotor['b'] = quadrotor['Ct'] * quadrotor['rho']*quadrotor['A']*quadrotor['r']**2     # T = b w^2
-quadrotor['k'] = quadrotor['Cq'] * quadrotor['rho']*quadrotor['A']*quadrotor['r']**3     # Q = k w^2
+        Results are returned in a class with attributes:
 
-quadrotor['verbose'] = False
+        - ``t`` the time vector: ndarray, shape=(M,)
+        - ``x`` is the state vector: ndarray, shape=(M,N)
+        - ``xnames`` is a list of the names of the states corresponding to columns of `x`, eg. "plant.x0",
+          defined for the block using the ``snames`` argument
+        - ``uN'` for a watched input where N is the index of the port mentioned in the ``watch`` argument
+        - ``unames`` is a list of the names of the input ports being watched, same order as in ``watch`` argument
+
+        If there are no dynamic elements in the diagram, ie. no states, then ``x`` and ``xnames`` are not
+        present.
+
+        The ``watch`` argument is a list of one or more input ports whose value during simulation
+        will be recorded.  The elements of the list can be:
+            - a ``Block`` reference, which is interpretted as input port 0
+            - a ``Plug`` reference, ie. a block with an index or attribute
+            - a string of the form "block[i]" which is port i of the block named block.
+
+
+        """
+
+    assert bd.compiled, 'Network has not been compiled'
+    bd.T = T
+    bd.count = 0
+    bd.stop = None  # allow any block to stop.BlockDiagram by setting this to the block's name
+    bd.checkfinite = checkfinite
+
+    # preproces the watchlist
+    pluglist = []
+    plugnamelist = []
+    re_block = re.compile(r'(?P<name>[^[]+)(\[(?P<port>[0-9]+)\])')
+    for n in watch:
+        if isinstance(n, str):
+            # a name was given, with optional port number
+            m = re_block.match(n)
+            name = m.group('name')
+            port = m.group('port')
+            b = bd.blocknames[name]
+            plug = b[port]
+        elif isinstance(n, Block):
+            # a block was given, defaults to port 0
+            plug = n[0]
+        elif isinstance(n, Plug):
+            # a plug was given
+            plug = n
+        else:
+            raise Exception("unreachable")
+        pluglist.append(plug)
+        plugnamelist.append(str(plug))
+
+    # try:
+    # tell all blocks we're doing a.BlockDiagram
+    bd.start()
+
+    # get initial state from the stateful blocks
+    x0 = bd.getstate()
+    if len(x0) > 0:
+        print('initial state x0 = ', x0)
+
+    if bd.options.progress:
+        printProgressBar(0,
+                         prefix='Progress:',
+                         suffix='complete',
+                         length=60)
+
+    # out = scipy.integrate.solve_ivp.BlockDiagram._deriv, args=(bd,), t_span=(0,T), y0=x0,
+    #             method=solver, t_eval=np.linspace(0, T, 100), events=None, **kwargs)
+    if len(x0) > 0:
+        # block diagram contains states, solve it using numerical integration
+
+        scipy_integrator = integrate.__dict__[
+            solver]  # get user specified integrator
+
+        integrator = scipy_integrator(lambda t, y: bd.evaluate(y, t),
+                                      t0=0.0,
+                                      y0=x0,
+                                      t_bound=T,
+                                      max_step=dt)
+
+        # initialize list of time and states
+        tlist = []
+        xlist = []
+        plist = [[] for p in pluglist]
+
+        while integrator.status == 'running':
+
+            # step the integrator, calls _deriv multiple times
+            integrator.step()
+
+            if integrator.status == 'failed':
+                print('integration completed with failed status ')
+
+            # stash the results
+            tlist.append(integrator.t)
+            xlist.append(integrator.y)
+
+            # record the ports on the watchlist
+            for i, p in enumerate(pluglist):
+                plist[i].append(p.block.inputs[p.port])
+
+            # update all blocks that need to know
+            bd.step()
+
+            # update the progress bar
+            if bd.options.progress:
+                printProgressBar(integrator.t / T,
+                                 prefix='Progress:',
+                                 suffix='complete',
+                                 length=60)
+
+            # has any block called a stop?
+            if bd.stop is not None:
+                print('\n--- stop requested at t={:f} by {:s}'.format(
+                    bd.t, str(bd.stop)))
+                break
+
+        # save buffered data in a Struct
+        out = Struct('results')
+        out.t = np.array(tlist)
+        out.x = np.array(xlist)
+        out.xnames = bd.statenames
+        for i, p in enumerate(pluglist):
+            out['u' + str(i)] = np.array(plist[i])
+        out.unames = plugnamelist
+    else:
+        # block diagram has no states
+
+        # initialize list of time and states
+        tlist = []
+        plist = [[] for p in pluglist]
+
+        for t in np.arange(0, T, dt):  # step through the time range
+
+            # evaluate the block diagram
+            bd.evaluate([], t)
+
+            # stash the results
+            tlist.append(t)
+
+            # record the ports on the watchlist
+            for i, p in enumerate(pluglist):
+                plist[i].append(p.block.inputs[p.port])
+
+            # update all blocks that need to know
+            bd.step()
+
+            # update the progress bar
+            if bd.options.progress:
+                printProgressBar(t / T,
+                                 prefix='Progress:',
+                                 suffix='complete',
+                                 length=60)
+
+            # has any block called a stop?
+            if bd.stop is not None:
+                print('\n--- stop requested at t={:f} by {:s}'.format(
+                    bd.t, str(bd.stop)))
+                break
+
+        # save buffered data in a Struct
+        out = Struct('results')
+        out.t = np.array(tlist)
+        for i, p in enumerate(pluglist):
+            out['u' + str(i)] = np.array(plist[i])
+        out.unames = plugnamelist
+
+    if bd.options.progress:
+        print('\r' + ' ' * 90 + '\r')
+
+    # except RuntimeError as err:
+    #     # bad things happens, print a message and return no result
+    #     print('unrecoverable error in evaluation: ', err)
+    #     return None
+
+    # pause until all graphics blocks close
+    bd.done(block=block)
+    # print(bd.count, ' integrator steps')
+
+    return out

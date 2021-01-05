@@ -20,20 +20,20 @@ import copy
 from collections import Iterable
 from typing import Union
 
-import bdsim
-from bdsim.core.components import Block, Source, SubsystemBlock, FunctionBlock, block
-from bdsim.core import BlockDiagram, np_compat as np
+from bdsim.core import BlockDiagram, np, SubsystemBlock, FunctionBlock, block, SourceType
 
 # ------------------------------------------------------------------------ #
+
+
 @block
 class Item(FunctionBlock):
 
     """
     :blockname:`ITEM`
-    
+
     .. table::
        :align: left
-    
+
        +------------+---------+---------+
        | inputs     | outputs |  states |
        +------------+---------+---------+
@@ -52,14 +52,14 @@ class Item(FunctionBlock):
         :param ``**kwargs``: common Block options
         :return: An ITEM block
         :rtype: Item instance
-        
+
         Create a signal selector block.
 
         For a dictionary type inut signal select one item as the output signal.
         For example::
-            
+
             ITEM('xd')
-            
+
         selects the ``xd`` item from the dictionary output signal of the MULTIROTOR
         block.
         """
@@ -67,7 +67,7 @@ class Item(FunctionBlock):
         super().__init__(nin=1, nout=1, **kwargs)
         self.type = 'item'
         self.item = item
-    
+
     def output(self, t=None):
         # TODO, handle inputs that are vectors themselves
         assert isinstance(self.inputs[0], dict), 'Input signal must be a dict'
@@ -75,6 +75,8 @@ class Item(FunctionBlock):
         return [self.inputs[0][self.item]]
 
 # ------------------------------------------------------------------------ #
+
+
 @block
 class Mux(FunctionBlock):
     """
@@ -82,7 +84,7 @@ class Mux(FunctionBlock):
 
     .. table::
        :align: left
-    
+
 
        +------------+---------+---------+
        | inputs     | outputs |  states |
@@ -108,20 +110,20 @@ class Mux(FunctionBlock):
 
         This block takes a number of scalar or vector signals and concatenates
         them into a single vector signal.  For example::
-            
+
             MUX(2, func1[2], sum3)
-            
+
         multiplexes the outputs of blocks ``func1`` (port 2) and ``sum3`` into
         a single output vector.  If the explicit inputs are omitted they can be wired
         using the ``connect`` function.
-        
+
         """
         super().__init__(nin=nin, nout=1, inputs=inputs, **kwargs)
         self.type = 'mux'
-    
+
     def output(self, t=None):
-        return np.concatenate(tuple( \
-                inp if isinstance(inp, Iterable) else (inp,) \
+        return np.concatenate(tuple(
+            inp if isinstance(inp, Iterable) else (inp,)
             for inp in self.inputs))
 
 
@@ -130,10 +132,10 @@ class Mux(FunctionBlock):
 class DeMux(FunctionBlock):
     """
     :blockname:`DEMUX`
-    
+
     .. table::
        :align: left
-    
+
        +------------+---------+---------+
        | inputs     | outputs |  states |
        +------------+---------+---------+
@@ -144,7 +146,7 @@ class DeMux(FunctionBlock):
        +------------+---------+---------+
     """
 
-    def __init__(self, nout: int=1, *inputs: Source, **kwargs):
+    def __init__(self, nout: int = 1, *inputs: SourceType, **kwargs):
         """
         :param nout: DESCRIPTION, defaults to 1
         :type nout: TYPE, optional
@@ -153,7 +155,7 @@ class DeMux(FunctionBlock):
         :param ``**kwargs``: common Block options
         :return: A DEMUX block
         :rtype: DeMux instance
-        
+
         Create a demultiplexer block.
 
         This block has a single input port and ``nout`` output ports.  A vector
@@ -163,21 +165,24 @@ class DeMux(FunctionBlock):
         """
         super().__init__(nin=1, nout=nout, inputs=inputs, **kwargs)
         self.type = 'demux'
-    
+
     def output(self, t=None):
         # TODO, handle inputs that are vectors themselves
-        assert len(self.inputs[0]) == self.nout, 'Input width not equal to number of output ports'
+        assert len(
+            self.inputs[0]) == self.nout, 'Input width not equal to number of output ports'
         return list(self.inputs[0])
 
 # ------------------------------------------------------------------------ #
+
+
 @block
 class SubSystem(SubsystemBlock):
     """
     :blockname:`SUBSYSTEM`
-    
+
     .. table::
        :align: left
-       
+
        +------------+------------+---------+
        | inputs     | outputs    |  states |
        +------------+------------+---------+
@@ -198,25 +203,25 @@ class SubSystem(SubsystemBlock):
         :raises ValueError: DESCRIPTION
         :return: A SUBSYSTEM block
         :rtype: SubSystem instance
-        
+
         Create a subsystem block.
 
         This block represents a subsystem in a parent block diagram.  It can be
         specified as either:
-            
+
             - the name of a module which is imported and must contain only
               only ``BlockDiagram`` instance, or
             - a ``BlockDiagram`` instance
-        
+
         The referenced block diagram must contain one or both of:
-        
+
             - one ``InPort`` block, which has outputs but no inputs. These
               outputs are connected to the inputs to the enclosing ``SubSystem`` block.
             - one ``OutPort`` block, which has inputs but no outputs. These
               inputs are connected to the outputs to the enclosing ``SubSystem`` block.
-              
+
         Notes:
-            
+
         - The referenced block diagram is treated like a macro and copied into 
           the parent block diagram at compile time. The ``SubSystem``, ``InPort`` and
           ``OutPort`` blocks are eliminated, that is, all hierarchical structure is 
@@ -229,19 +234,23 @@ class SubSystem(SubsystemBlock):
         """
         super().__init__(inputs=inputs, **kwargs)
         self.type = 'subsystem'
-        
+
         if isinstance(subsys, str):
             # attempt to import the file
             try:
                 # TODO: handle this for micropython
-                module = importlib.import_module(subsys, package='.') # type: ignore
+                module = importlib.import_module(
+                    subsys, package='.')  # type: ignore
 
                 # get all the bdsim.BlockDiagram instances
-                simvars = [name for name, ref in module.__dict__.items() if isinstance(ref, BlockDiagram)]
+                simvars = [name for name, ref in module.__dict__.items(
+                ) if isinstance(ref, BlockDiagram)]
                 if len(simvars) == 0:
-                    raise ImportError('no bdsim.Simulation instances in imported module')
+                    raise ImportError(
+                        'no bdsim.Simulation instances in imported module')
                 elif len(simvars) > 1:
-                    raise ImportError('multiple bdsim.Simulation instances in imported module' + str(simvars))
+                    raise ImportError(
+                        'multiple bdsim.Simulation instances in imported module' + str(simvars))
                 ss = module.__dict__[simvars[0]]
                 self.ssvar = simvars[0]
 
@@ -250,26 +259,29 @@ class SubSystem(SubsystemBlock):
 
             except ModuleNotFoundError:
                 print('-- module not found ', subsys)
-        
+
         elif isinstance(subsys, BlockDiagram):
             # use an in-memory digram
             self.ssvar = None
         else:
-            raise ValueError('argument must be filename or BlockDiagram instance')
-        
+            raise ValueError(
+                'argument must be filename or BlockDiagram instance')
+
         assert isinstance(subsys, BlockDiagram)
         self.subsystem = copy.deepcopy(subsys)
         self.ssname = subsys.name
 
 # ------------------------------------------------------------------------ #
+
+
 @block
 class InPort(SubsystemBlock):
     """
     :blockname:`INPORT`
-    
+
     .. table::
        :align: left
-    
+
        +------------+---------+---------+
        | inputs     | outputs |  states |
        +------------+---------+---------+
@@ -278,7 +290,7 @@ class InPort(SubsystemBlock):
        |            | any     |         |
        +------------+---------+---------+
     """
-    
+
     def __init__(self, nout=1, **kwargs):
         """
         :param nout: Number of output ports, defaults to 1
@@ -288,7 +300,7 @@ class InPort(SubsystemBlock):
         :rtype: InPort instance
 
         Create an input port block for a subsystem.
-        
+
         This block connects a subsystem to a parent block diagram.  Inputs to the
         parent-level ``SubSystem`` block appear as outputs of this block.
         """
@@ -296,14 +308,16 @@ class InPort(SubsystemBlock):
         self.type = 'inport'
 
 # ------------------------------------------------------------------------ #
+
+
 @block
 class OutPort(SubsystemBlock):
     """
     :blockname:`OUTPORT`
-    
+
     .. table::
        :align: left
-    
+
        +------------+---------+---------+
        | inputs     | outputs |  states |
        +------------+---------+---------+
@@ -322,7 +336,7 @@ class OutPort(SubsystemBlock):
         :param ``**kwargs``: common Block options
         :return: A OUTPORT block
         :rtype: OutPort instance
-        
+
         Create an output port block for a subsystem.
 
         This block connects a subsystem to a parent block diagram.  Outputs of the
@@ -337,4 +351,5 @@ if __name__ == "__main__":
     import pathlib
     import os.path
 
-    exec(open(os.path.join(pathlib.Path(__file__).parent.absolute(), "test_connections.py")).read())
+    exec(open(os.path.join(pathlib.Path(
+        __file__).parent.absolute(), "test_connections.py")).read())

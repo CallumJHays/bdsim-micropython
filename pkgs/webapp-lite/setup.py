@@ -7,5 +7,5 @@ setup_pkg(
     name='bdsim.webapp-lite',
     packages=find_namespace_packages(),
     description='Slimmed-down Realtime Telemetry Webapp for bdsim',
-    install_requires=['bdsim.core']
+    install_requires=['bdsim.core', 'flask', 'msgpack', 'bidict']
 )

@@ -13,7 +13,7 @@ import scipy.interpolate
 import math
 from typing_extensions import Literal
 
-from bdsim import np, block, FunctionBlock
+from bdsim.core import np, block, FunctionBlock
 
 
 # PID

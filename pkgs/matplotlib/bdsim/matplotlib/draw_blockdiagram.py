@@ -1,3 +1,6 @@
+from bdsim.core import SourceBlock, SinkBlock, FunctionBlock, TransferBlock
+from bdsim.core.blocks.functions import Sum, Gain
+
 
 def dotfile(self, file):
     """

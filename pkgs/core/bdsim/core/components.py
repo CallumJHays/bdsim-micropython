@@ -4,7 +4,7 @@
 Components of the simulation system, namely blocks, wires and plugs.
 """
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional as Opt, Tuple, Union, TYPE_CHECKING
+from typing import Any, Iterable, List, Optional as Opt, Tuple, Union, TYPE_CHECKING
 from typing_extensions import Literal
 
 from bdsim.core import np
@@ -14,7 +14,7 @@ if TYPE_CHECKING:  # this lets us use type-hints without circular dependency
 from collections import UserDict
 
 # type alias
-_Source = Union['Block', 'Plug']
+SourceType = Union['Block', 'Plug']
 
 
 class Struct(UserDict):
@@ -94,7 +94,7 @@ class Plug:
 
     """
 
-    def __init__(self, block: 'Block', port: int = 0, type: Literal["start", "end"] = None):
+    def __init__(self, block: 'Block', port: Union[int, slice] = 0, type: Literal["start", "end"] = None):
 
         self.block = block
         self.port = port
@@ -126,11 +126,10 @@ class Plug:
         If the port is a slice, eg. ``[0:3]``, returns [0, 1, 2].
 
         """
-        # if isinstance(self.port, slice):
-        #     step = 1 if self.port.step is None else self.port.step
-        #     return list(range(self.port.start, self.port.stop, step))
-        # else:
-        return [self.port]
+        if isinstance(self.port, slice):
+            return list(range(self.port.start, self.port.stop, self.port.step or 1))
+        else:
+            return [self.port]
 
     @property
     def width(self):
@@ -146,7 +145,7 @@ class Plug:
         """
         return len(self.portlist)
 
-    def __mul__(self, right: _Source):
+    def __mul__(self, right: SourceType):
         """
         Operator for implicit wiring.
 
@@ -186,12 +185,12 @@ class Plug:
         #print('plug * ' + str(w))
         return right
 
-    def __setitem__(self, port: int, src: _Source):
+    def __setitem__(self, port: Union[int, slice], src: SourceType):
         """
         Convert a LHS block slice reference to a wire.
 
         :param port: Port number
-        :type port: int
+        :type port: int | slice
         :param src: the RHS
         :type src: Block or Plug
 
@@ -426,7 +425,7 @@ class Block(ABC):
 
         # we overload setattr, so need to know whether it is being passed a port
         # name.  Add this attribute now to allow proper operation.
-        block.portnames = []  # must be first, see __setattr__
+        block.__dict__['portnames'] = []  # must be first, see __setattr__
 
         block.bd = bd
         block.nin = 0
@@ -561,7 +560,7 @@ class Block(ABC):
         #print('getitem called', self, port)
         return Plug(self, port)
 
-    def __setitem__(self, port: int, src: _Source):
+    def __setitem__(self, port: int, src: SourceType):
         """
         Convert a LHS block slice reference to a wire.
 
@@ -584,7 +583,7 @@ class Block(ABC):
         #print('connecting', src, self, port)
         self.bd.connect(src, self[port])
 
-    def __setattr__(self, name: str, value: _Source):
+    def __setattr__(self, name: str, value: SourceType):
         """
         Convert a LHS block name reference to a wire.
 
@@ -622,7 +621,7 @@ class Block(ABC):
             # regular case, add attribute to the instance's dictionary
             self.__dict__[name] = value
 
-    def __mul__(self, right: _Source):
+    def __mul__(self, right: SourceType):
         """
         Operator for implicit wiring.
 
@@ -678,7 +677,7 @@ class Block(ABC):
     def _fixname(self, s):
         return s.translate(self._latex_remove)
 
-    def inport_names(self, names: List[str]):
+    def inport_names(self, names: Iterable[str]):
         """
         Set the names of block input ports.
 
@@ -699,7 +698,7 @@ class Block(ABC):
             setattr(self, fn, self[port])
             self.portnames.append(fn)
 
-    def outport_names(self, names: List[str]):
+    def outport_names(self, names: Iterable[str]):
         """
         Set the names of block output ports.
 
@@ -720,7 +719,7 @@ class Block(ABC):
             setattr(self, fn, self[port])
             self.portnames.append(fn)
 
-    def state_names(self, names: List[str]):
+    def state_names(self, names: Iterable[str]):
         self._state_names = names
 
     def sourcename(self, port: int):
@@ -808,21 +807,13 @@ class Block(ABC):
             self, 'initd'
         ) and self.initd, 'Block superclass not initalized. was super().__init__ called?'
 
-    @abstractmethod
-    def start(self, **kwargs):  # begin of a simulation
-        pass
+    def start(self, **kwargs): ...  # begin of a simulation
 
-    @abstractmethod
-    def output(self, t: float):
-        pass
+    def output(self, t: float): ...
 
-    @abstractmethod
-    def step(self):  # valid
-        pass  # to be deprecated; replaced solely by output()
+    def step(self): ...  # to be deprecated; replaced solely by output()
 
-    @abstractmethod
-    def done(self, **kwargs):  # end of simulation
-        pass
+    def done(self, **kwargs): ...  # end of simulation
 
 
 class SinkBlock(Block):
@@ -848,7 +839,7 @@ class SourceBlock(Block):
     blockclass = 'source'
 
     def __init__(self, **kwargs):
-        # print('_Source constructor')
+        # print('SourceType constructor')
         super().__init__(**kwargs)
         self.nin = 0
         self.nstates = 0
@@ -931,4 +922,5 @@ class SubsystemBlock(Block):
 
 # module exports
 __all__ = ('block', 'Block', 'Wire', 'Plug', 'FunctionBlock', 'SinkBlock',
-           'SourceBlock', 'SubsystemBlock', 'Struct', 'TransferBlock', 'blocklist')
+           'SourceBlock', 'SubsystemBlock', 'Struct', 'TransferBlock', 'blocklist',
+           'SourceType')
