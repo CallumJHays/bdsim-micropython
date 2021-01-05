@@ -1,5 +1,5 @@
-numpy == 1.16
-typing_extensions == 3.7.4.3
-pylint==2.3.1
-matplotlib == 2.2.5
-ansitable == 0.9.5
+numpy
+typing_extensions
+pylint
+matplotlib
+ansitable
