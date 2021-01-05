@@ -7,5 +7,5 @@ setup_pkg(
     name='bdsim.core',
     packages=find_namespace_packages(),
     description='Blocks, Wires and BlockDiagram classes for `bdsim`',  # TODO
-    install_requires=[]
+    install_requires=['ansitable']
 )
