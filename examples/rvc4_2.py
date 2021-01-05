@@ -3,8 +3,8 @@
 # run with command line -a switch to show animation
 
 from bdsim.core import BlockDiagram
-import bdsim.robots
-import bdsim.matplotlib
+import bdsim.robots  # bd.BICYCLE
+import bdsim.matplotlib  # bd.SCOPE...
 from bdsim.sim import simulate
 
 bd = BlockDiagram()
@@ -17,7 +17,7 @@ bike = bd.BICYCLE(x0=[0, 0, 0], name='bicycle')
 tscope = bd.SCOPE(name='theta')
 scope = bd.SCOPEXY(scale=[0, 10, 0, 1.2])
 
-bd.connect(speed, bike[0])
+bd.connect(speed, bike[0], name='wire1')
 bd.connect(steer, bike[1])
 
 bd.connect(bike[0:2], scope)
